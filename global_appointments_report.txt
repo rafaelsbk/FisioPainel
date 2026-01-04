@@ -1,0 +1,7 @@
+Implemented Global Appointments Menu.
+
+Frontend:
+- Updated 'AppointmentRepository' with 'getAllAppointments'.
+- Created 'GlobalAppointmentController'.
+- Created 'GlobalAppointmentsScreen' to list all appointments.
+- Updated 'BaseLayoutScreen' to include an "Agenda" menu item.

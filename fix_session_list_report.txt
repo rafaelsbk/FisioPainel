@@ -1,0 +1,7 @@
+Fix: Session List and Count Logic.
+
+Backend/Data:
+- Updated 'AppointmentRepository' to handle paginated responses (Map with 'results') in 'getAppointmentsForPackage', preventing empty lists.
+
+Frontend:
+- Updated '_openBulkSchedule' in 'PackageScreen' to force fetch appointments before calculating remaining sessions.

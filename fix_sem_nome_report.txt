@@ -1,0 +1,5 @@
+Fix: 'Sem Nome' in Service Type Dropdown.
+
+Frontend:
+- Updated 'PackageRepository' to use 'ServiceTypeDto' instead of 'ServiceTypeModel.fromJson'.
+- This ensures the correct field mapping ('nome_atendimento') is used when fetching service types.

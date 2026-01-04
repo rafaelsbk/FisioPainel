@@ -1,0 +1,6 @@
+Enhanced Bulk Scheduling.
+
+Frontend:
+- Updated 'BulkScheduleDialog' to include a "Default Professional" dropdown.
+- Selecting a professional in this dropdown updates all appointment drafts in the list.
+- This streamlines the process of assigning a single professional to multiple sessions of a package.

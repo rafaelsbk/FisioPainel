@@ -1,0 +1,13 @@
+Fix: Backend Serializer Crash on Null Professional.
+
+Issue:
+- The 'AgendamentoSerializer' was attempting to access 'profissional.username' directly.
+- If an appointment was created without a professional (which is now allowed), this caused a server error (500).
+- The frontend interpreted this error as an empty list ("Nenhum agendamento encontrado"), leading to the confusion.
+
+Fix:
+- Updated 'AgendamentoSerializer' in 'users/serializers.py' to safely handle cases where the professional is null.
+
+Verification:
+- Appointments without professionals should now appear in the list correctly.
+- The search logic (fetching by Package ID) was already correct and remains unchanged.

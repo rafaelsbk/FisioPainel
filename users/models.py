@@ -60,6 +60,7 @@ class Pacote(models.Model):
 
 class Agendamento(models.Model):
     class Status(models.TextChoices):
+        ABERTO = "ABERTO", "Aberto"
         AGENDADO = "AGENDADO", "Agendado"
         REALIZADO = "REALIZADO", "Realizado"
         FALTA = "FALTA", "Falta"
@@ -70,9 +71,9 @@ class Agendamento(models.Model):
         PAGO = "PAGO", "Pago"
 
     pacote = models.ForeignKey('Pacote', on_delete=models.CASCADE, related_name='agendamentos')
-    profissional = models.ForeignKey('User', on_delete=models.CASCADE, related_name='agendamentos', limit_choices_to={'role': User.Role.PROFISSIONAL})
-    data_hora = models.DateTimeField()
-    status = models.CharField(max_length=50, choices=Status.choices, default=Status.AGENDADO)
+    profissional = models.ForeignKey('User', on_delete=models.CASCADE, related_name='agendamentos', limit_choices_to={'role': User.Role.PROFISSIONAL}, null=True, blank=True)
+    data_hora = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=50, choices=Status.choices, default=Status.ABERTO)
     valor_repasse_calculado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     status_repasse = models.CharField(max_length=50, choices=StatusRepasse.choices, default=StatusRepasse.PENDENTE)
 

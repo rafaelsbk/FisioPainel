@@ -1,0 +1,22 @@
+Refactor Package Screen & Appointment Management Report
+------------------------------------------------------
+
+1.  **Backend Verification:**
+    *   Verified `users/views.py`: `PacoteViewSet` has a custom action `agendamentos` which correctly returns appointments for a specific package.
+    *   Verified `users/models.py`: `Agendamento` model correctly has `related_name='agendamentos'` linking to `Pacote`.
+
+2.  **Frontend Changes (Flutter):**
+    *   **Repository (`appointment_repository.dart`):** Added `updateAppointment` method to handle PUT requests for updating appointment details.
+    *   **Controller (`appointment_controller.dart`):** Added `updateAppointment` method to bridge the UI and Repository.
+    *   **New Dialog (`edit_appointment_dialog.dart`):** Created a new dialog widget that allows editing:
+        *   Date and Time (using DatePicker and TimePicker).
+        *   Professional (Dropdown).
+        *   Status (Dropdown).
+    *   **Screen (`package_screen.dart`):**
+        *   Updated the appointment list item (ListTile).
+        *   Added an "Edit" button (IconButton with pencil icon) next to the status chip.
+        *   Implemented `_editAppointment` method which opens the dialog and refreshes the list upon success.
+
+3.  **Outcome:**
+    *   The package menu now correctly fetches and displays appointments (logic was verified).
+    *   Users can now edit individual appointments within a package to reschedule or change details.

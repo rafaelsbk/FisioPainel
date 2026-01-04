@@ -5,8 +5,9 @@ import '../../controllers/package_controller.dart';
 
 class PackageFormScreen extends StatefulWidget {
   final PackageController controller;
+  final PackageModel? package; // Pacote opcional para edição
 
-  const PackageFormScreen({super.key, required this.controller});
+  const PackageFormScreen({super.key, required this.controller, this.package});
 
   @override
   State<PackageFormScreen> createState() => _PackageFormScreenState();
@@ -14,6 +15,7 @@ class PackageFormScreen extends StatefulWidget {
 
 class _PackageFormScreenState extends State<PackageFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  late bool _isEditing;
 
   // Controllers de Texto
   final _qtdCtrl = TextEditingController();
@@ -27,6 +29,26 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   DateTime? _selectedDate;
   String _status = "ATIVO";
 
+  @override
+  void initState() {
+    super.initState();
+    _isEditing = widget.package != null;
+
+    if (_isEditing) {
+      final pkg = widget.package!;
+      _selectedPatientId = pkg.patientId;
+      _selectedTypeId = pkg.serviceTypeId;
+      _qtdCtrl.text = pkg.quantity.toString();
+      _totalCtrl.text = pkg.totalValue.toStringAsFixed(2);
+      _sessionValueCtrl.text = pkg.sessionValue.toStringAsFixed(2);
+      _status = pkg.status;
+      if (pkg.paymentDate != null) {
+        _selectedDate = pkg.paymentDate;
+        _dateCtrl.text = DateFormat('dd/MM/yyyy').format(pkg.paymentDate!);
+      }
+    }
+  }
+  
   // Lógica de Cálculo Automático
   void _calculateSessionValue() {
     final qtd = double.tryParse(_qtdCtrl.text) ?? 0;
@@ -41,7 +63,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
@@ -57,7 +79,8 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
     if (_formKey.currentState!.validate() &&
         _selectedPatientId != null &&
         _selectedTypeId != null) {
-      final newPackage = PackageModel(
+      final packageData = PackageModel(
+        id: _isEditing ? widget.package!.id : null,
         patientId: _selectedPatientId!,
         serviceTypeId: _selectedTypeId!,
         quantity: int.parse(_qtdCtrl.text),
@@ -67,8 +90,23 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
         paymentDate: _selectedDate,
       );
 
-      final success = await widget.controller.createPackage(newPackage);
-      if (success && mounted) Navigator.pop(context, true);
+      final success = _isEditing
+          ? await widget.controller.updatePackage(packageData)
+          : await widget.controller.createPackage(packageData);
+
+      if (success && mounted) {
+        Navigator.pop(context, true);
+      } else if (mounted) {
+        // Exibe o erro no rodapé do próprio modal
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.controller.error.isNotEmpty
+                ? widget.controller.error
+                : 'Ocorreu um erro desconhecido.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -86,9 +124,9 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Novo Pacote',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                 Text(
+                  _isEditing ? 'Editar Pacote' : 'Novo Pacote',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 20),
 
@@ -239,7 +277,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                     ),
                     child: widget.controller.isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('CRIAR PACOTE'),
+                        : Text(_isEditing ? 'SALVAR ALTERAÇÕES' : 'CRIAR PACOTE'),
                   ),
                 ),
               ],

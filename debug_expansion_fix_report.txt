@@ -1,0 +1,21 @@
+Debug Package Expansion Issue Report
+------------------------------------
+
+1.  **Analysis of the Issue:**
+    *   User reported "Nothing happens" when clicking to expand a package, and "Console doesn't respond".
+    *   This implies the previous `expansionCallback` logic might have been flawed (e.g., crashing silently on null ID) or the state toggle logic was confusing (Flutter's `isExpanded` parameter behavior).
+
+2.  **Fix Applied:**
+    *   **Robust Callback Logic:** Refactored `expansionCallback` in `PackagesScreen`.
+        *   Added a check for `packageId == null`. If null, it logs an error and returns safely instead of crashing.
+        *   Changed the toggle logic to rely strictly on the local `_isExpandedMap` state: `_isExpandedMap[id] = !(_isExpandedMap[id] ?? false)`. This avoids confusion with the callback's boolean parameter.
+        *   Added explicit `print` statements ("Clicou no pacote...", "Buscando agendamentos...") to verify if the tap is even registering.
+
+3.  **Instructions for User:**
+    *   **Hot Restart:** Please perform a **Full Restart** (stop and run again, or Hot Restart) of the app to ensure the new logic is loaded.
+    *   **Test:** Click on a package again.
+    *   **Check Console:** If it still fails, check the debug console/terminal. You should see messages like "Clicou no pacote X...".
+        *   If you see the logs but the UI doesn't open, it's a UI rendering issue.
+        *   If you *don't* see the logs, the click isn't even reaching the code (widget obstruction?).
+
+This change aims to isolate whether it's a logic error or an event handling error.

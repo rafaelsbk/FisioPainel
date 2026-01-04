@@ -1,0 +1,7 @@
+Fix: Layout Overflow in Package Screen.
+
+Frontend:
+- Restructured 'ListTile' in 'PackageScreen'.
+- Moved status indicator to 'subtitle' area.
+- Simplified 'trailing' widget to only contain action buttons.
+- Resolved RenderFlex overflow error.

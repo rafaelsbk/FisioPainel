@@ -1,0 +1,10 @@
+Creation, editing, and deletion of packages have been fixed.
+
+Backend:
+- 'Agendamento' model updated to allow null professional/date and added 'ABERTO' status.
+- Added 'criar_agendamentos' and 'agendamentos' endpoints to 'PacoteViewSet'.
+- Updated 'AgendamentoSerializer' to include professional name.
+
+Frontend:
+- Implemented '_deletePackage' logic in 'package_screen.dart'.
+- Fixed 'ServiceTypeDto' to correctly map service type names.

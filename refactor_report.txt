@@ -1,0 +1,10 @@
+Refactored Appointment System to "Credit" Model.
+
+Backend:
+- Disabled 'criar_agendamentos' endpoint.
+
+Frontend:
+- Removed automatic appointment creation on package creation.
+- Implemented 'AppointmentDto' and updated Repository.
+- Created 'AppointmentController' and 'AppointmentDialog'.
+- Updated 'PackagesScreen' to display session usage (credits) and allow adding single appointments manually.

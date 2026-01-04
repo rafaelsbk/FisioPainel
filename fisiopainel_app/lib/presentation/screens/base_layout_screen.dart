@@ -1,7 +1,10 @@
+import 'package:fisiopainel_app/presentation/screens/packages/package_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'patients/patients_screen.dart';
 import 'professionals/professional_screen.dart';
+import 'service_types/service_type_screen.dart';
+import 'appointments/global_appointments_screen.dart';
 
 class BaseLayoutScreen extends StatefulWidget {
   const BaseLayoutScreen({super.key});
@@ -86,6 +89,18 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
                   onTap: () => _selectPage(0, "Visão Geral"),
                 ),
 
+                // Opção Agenda
+                ListTile(
+                  leading: const Icon(Icons.calendar_today, color: Colors.white70),
+                  title: const Text(
+                    'Agenda',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  selected: _selectedIndex == 5,
+                  selectedTileColor: Colors.blueGrey[700],
+                  onTap: () => _selectPage(5, "Agenda de Atendimentos"),
+                ),
+
                 // --- SUBMENU DE CADASTROS ---
                 Theme(
                   // Remove as bordas divisórias padrão do ExpansionTile
@@ -114,7 +129,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
                         Icons.medical_services,
                       ),
                       _buildMenuItem(3, "Pacotes", Icons.inventory_2),
-                      _buildMenuItem(4, "Atendimentos", Icons.calendar_month),
+                      _buildMenuItem(4, "Tipos de Atendimento", Icons.calendar_month),
                     ],
                   ),
                 ),
@@ -158,9 +173,11 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
       case 2:
         return const ProfessionalsScreen(); // Agora exibe a tela real
       case 3:
-        return const Center(child: Text("Tela de Cadastro de PACOTES"));
+        return const PackagesScreen();
       case 4:
-        return const Center(child: Text("Tela de Cadastro de ATENDIMENTOS"));
+        return const ServiceTypeScreen();
+      case 5:
+        return const GlobalAppointmentsScreen();
       default:
         return const Center(child: Text("Página não encontrada"));
     }

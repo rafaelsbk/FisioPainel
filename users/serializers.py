@@ -22,6 +22,11 @@ class PacoteSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class AgendamentoSerializer(serializers.ModelSerializer):
+    nome_profissional = serializers.SerializerMethodField()
+    
     class Meta:
         model = Agendamento
         fields = '__all__'
+
+    def get_nome_profissional(self, obj):
+        return obj.profissional.username if obj.profissional else None
