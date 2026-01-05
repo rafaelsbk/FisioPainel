@@ -5,10 +5,7 @@ class ServiceTypeDto {
   static ServiceTypeModel fromJson(Map<String, dynamic> json) {
     return ServiceTypeModel(
       id: json['id'],
-      // CORREÇÃO AQUI:
-      // O parâmetro do Model é 'name'
-      // O valor que vem da API é json['nome']
-      name: json['nome'] ?? json['description'] ?? 'Sem Nome',
+      name: json['nome_atendimento'] ?? json['nome'] ?? json['description'] ?? 'Sem Nome',
     );
   }
 }

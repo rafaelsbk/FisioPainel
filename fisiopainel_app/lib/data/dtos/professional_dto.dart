@@ -1,3 +1,4 @@
+import '../../domain/models/audit_fields.dart';
 import '../../domain/models/professional_model.dart';
 
 class ProfessionalDto {
@@ -13,6 +14,8 @@ class ProfessionalDto {
       phoneNumber: json['telepone_number'] ?? '',
       cpf: json['cpf'] ?? '',
       crefito: json['crefito'] ?? '',
+      role: json['role'],
+      audit: AuditFields.fromJson(json),
 
       percentualRepasse: json['percentual_repasse'] != null
           ? double.tryParse(json['percentual_repasse'].toString())
@@ -30,7 +33,7 @@ class ProfessionalDto {
       "email": model.email,
       "first_name": model.firstName,
       "last_name": model.lastName,
-      "role": "PROFISSIONAL", // FIXO CONFORME REQUISITO
+      "role": model.role ?? "PROFISSIONAL",
       "telepone_number": model.phoneNumber, // Mantendo o typo da API
       "cpf": model.cpf,
       "crefito": model.crefito,

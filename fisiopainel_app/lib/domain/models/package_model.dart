@@ -1,3 +1,5 @@
+import 'audit_fields.dart';
+
 class PackageModel {
   final int? id;
   final int patientId; // 'paciente'
@@ -11,6 +13,7 @@ class PackageModel {
   // Campos auxiliares para exibição na lista (Join no front ou back)
   final String? patientName;
   final String? serviceName;
+  final AuditFields? audit;
 
   PackageModel({
     this.id,
@@ -23,5 +26,6 @@ class PackageModel {
     this.paymentDate,
     this.patientName,
     this.serviceName,
+    this.audit,
   });
 }

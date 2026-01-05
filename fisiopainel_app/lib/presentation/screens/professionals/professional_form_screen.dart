@@ -21,6 +21,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
 
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -28,6 +29,9 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
   final _cpfCtrl = TextEditingController();
   final _crefitoCtrl = TextEditingController();
   final _percentualCtrl = TextEditingController();
+  String _selectedRole = 'PROFISSIONAL';
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void initState() {
@@ -43,11 +47,18 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
       _cpfCtrl.text = p.cpf;
       _crefitoCtrl.text = p.crefito;
       _percentualCtrl.text = p.percentualRepasse?.toString() ?? '';
+      _selectedRole = p.role ?? 'PROFISSIONAL';
     }
   }
 
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
+      if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('As senhas não coincidem')),
+        );
+        return;
+      }
       final newProfessional = ProfessionalModel(
         id: widget.professionalToEdit?.id, // Mantém ID se existir
         username: _usernameCtrl.text,
@@ -60,6 +71,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
         phoneNumber: _phoneCtrl.text,
         cpf: _cpfCtrl.text,
         crefito: _crefitoCtrl.text,
+        role: _selectedRole,
         percentualRepasse: double.tryParse(_percentualCtrl.text),
         valorRepasseFixo: null,
       );
@@ -133,12 +145,24 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: _passwordCtrl,
-                              obscureText: true,
+                              obscureText: _obscurePassword,
                               decoration: InputDecoration(
                                 labelText: isEditing
-                                    ? 'Senha (Deixe vazio para manter)'
+                                    ? 'Nova Senha (opcional)'
                                     : 'Senha *',
                                 border: const OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility
+                                        : Icons.visibility_off,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
+                                  },
+                                ),
                               ),
                               validator: (v) =>
                                   (!isEditing && (v == null || v.isEmpty))
@@ -147,6 +171,65 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _confirmPasswordCtrl,
+                        obscureText: _obscureConfirmPassword,
+                        decoration: InputDecoration(
+                          labelText: isEditing
+                              ? 'Confirmar Nova Senha'
+                              : 'Confirmar Senha *',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmPassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword;
+                              });
+                            },
+                          ),
+                        ),
+                        validator: (v) {
+                          if (!isEditing && (v == null || v.isEmpty)) {
+                            return 'Obrigatório';
+                          }
+                          if (_passwordCtrl.text.isNotEmpty &&
+                              v != _passwordCtrl.text) {
+                            return 'As senhas não coincidem';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: _selectedRole,
+                        decoration: const InputDecoration(
+                          labelText: 'Nível de Acesso (Role)',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'ADMIN',
+                            child: Text('Administrador'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'PROFISSIONAL',
+                            child: Text('Profissional (Personal)'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedRole = val;
+                            });
+                          }
+                        },
                       ),
                       const SizedBox(height: 20),
 

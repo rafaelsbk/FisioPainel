@@ -1,3 +1,4 @@
+import '../../domain/models/audit_fields.dart';
 import '../../domain/models/package_model.dart';
 
 class PackageDto {
@@ -18,6 +19,7 @@ class PackageDto {
       // Se a API mandar o nome expandido, pegamos aqui. Senão, fica null.
       patientName: json['paciente_nome'],
       serviceName: json['tipo_atendimento_nome'],
+      audit: AuditFields.fromJson(json),
     );
   }
 

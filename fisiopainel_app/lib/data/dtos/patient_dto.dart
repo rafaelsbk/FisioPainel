@@ -1,3 +1,4 @@
+import '../../domain/models/audit_fields.dart';
 import '../../domain/models/patient_model.dart';
 
 class PatientDto {
@@ -11,12 +12,14 @@ class PatientDto {
       phoneNumber: json['numero_telefone'], // Mapeamento importante
       cpf: json['cpf'],
       rg: json['rg'],
+      profissionalResponsavelId: json['profissional_responsavel'],
+      audit: AuditFields.fromJson(json),
     );
   }
 
   // Converte Modelo Dart -> JSON para API (Create/Update)
   static Map<String, dynamic> toJson(PatientModel model) {
-    return {
+    final Map<String, dynamic> data = {
       "complete_name": model.completeName,
       "address": model.address,
       "email": model.email,
@@ -24,5 +27,9 @@ class PatientDto {
       "cpf": model.cpf,
       "rg": model.rg,
     };
+    if (model.profissionalResponsavelId != null) {
+      data["profissional_responsavel"] = model.profissionalResponsavelId;
+    }
+    return data;
   }
 }

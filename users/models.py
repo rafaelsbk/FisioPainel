@@ -1,13 +1,20 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-class User(AbstractUser):
+class AuditModel(models.Model):
+    criado_por = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='%(class)s_criados')
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    editado_por = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='%(class)s_editados')
+    data_ultima_edicao = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+class User(AbstractUser, AuditModel):
     class Role(models.TextChoices):
         ADMIN = "ADMIN", "Admin"
         PROFISSIONAL = "PROFISSIONAL", "Profissional"
 
-    # Base fields from AbstractUser: username, first_name, last_name, email, is_staff, is_active, date_joined
-    
     role = models.CharField(max_length=50, choices=Role.choices, blank=True, null=True)
     telepone_number = models.CharField(max_length=20, blank=True, null=True)
     cpf = models.CharField(max_length=14, blank=True, null=True)
@@ -20,27 +27,26 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
-class Paciente(models.Model):
-    # 'id' is added automatically by Django
+class Paciente(AuditModel):
     complete_name = models.CharField(max_length=255)
     address = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     numero_telefone = models.CharField(max_length=20, blank=True, null=True)
     cpf = models.CharField(max_length=14, blank=True, null=True)
     rg = models.CharField(max_length=20, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    profissional_responsavel = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='pacientes', limit_choices_to={'role': User.Role.PROFISSIONAL})
 
     def __str__(self):
         return self.complete_name
 
-class TipoAtendimento(models.Model):
-    nome_atendimento = models.CharField(max_length=100) # Note: 'Ex: RPG, Pilates, Traumato'
+class TipoAtendimento(AuditModel):
+    nome_atendimento = models.CharField(max_length=100)
 
     def __str__(self):
         return self.nome_atendimento
 
-class Pacote(models.Model):
+class Pacote(AuditModel):
     class Status(models.TextChoices):
         ATIVO = "ATIVO", "Ativo"
         FINALIZADO = "FINALIZADO", "Finalizado"
@@ -53,13 +59,13 @@ class Pacote(models.Model):
     valor_por_sessao = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.ATIVO)
     data_pagamento = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Pacote {self.id} para {self.paciente.complete_name}"
 
-class Agendamento(models.Model):
+class Agendamento(AuditModel):
     class Status(models.TextChoices):
+        ABERTO = "ABERTO", "Aberto"
         AGENDADO = "AGENDADO", "Agendado"
         REALIZADO = "REALIZADO", "Realizado"
         FALTA = "FALTA", "Falta"
@@ -70,9 +76,9 @@ class Agendamento(models.Model):
         PAGO = "PAGO", "Pago"
 
     pacote = models.ForeignKey('Pacote', on_delete=models.CASCADE, related_name='agendamentos')
-    profissional = models.ForeignKey('User', on_delete=models.CASCADE, related_name='agendamentos', limit_choices_to={'role': User.Role.PROFISSIONAL})
-    data_hora = models.DateTimeField()
-    status = models.CharField(max_length=50, choices=Status.choices, default=Status.AGENDADO)
+    profissional = models.ForeignKey('User', on_delete=models.CASCADE, related_name='agendamentos', limit_choices_to={'role': User.Role.PROFISSIONAL}, null=True, blank=True)
+    data_hora = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=50, choices=Status.choices, default=Status.ABERTO)
     valor_repasse_calculado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     status_repasse = models.CharField(max_length=50, choices=StatusRepasse.choices, default=StatusRepasse.PENDENTE)
 

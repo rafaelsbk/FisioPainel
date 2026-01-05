@@ -1,3 +1,5 @@
+import 'audit_fields.dart';
+
 class PatientModel {
   final int? id; // Pode ser nulo na criação
   final String completeName; // No Django é complete_name
@@ -6,6 +8,8 @@ class PatientModel {
   final String? phoneNumber; // No Django é numero_telefone
   final String? cpf;
   final String? rg;
+  final int? profissionalResponsavelId;
+  final AuditFields? audit;
 
   PatientModel({
     this.id,
@@ -15,5 +19,7 @@ class PatientModel {
     this.phoneNumber,
     this.cpf,
     this.rg,
+    this.profissionalResponsavelId,
+    this.audit,
   });
 }
