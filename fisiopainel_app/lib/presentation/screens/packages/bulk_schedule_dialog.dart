@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/appointment_controller.dart';
 import '../../../domain/models/appointment_model.dart';
 
@@ -32,22 +33,47 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
   final AppointmentController _controller = AppointmentController();
   List<_AppointmentDraft> _drafts = [];
   bool _isSubmitting = false;
-  int? _globalProfessionalId; // Para seleção em massa
+  int? _globalProfessionalId;
+  int? _currentUserId;
 
   @override
   void initState() {
     super.initState();
-    _controller.loadDependencies().then((_) {
-      if (mounted) setState(() {});
-    });
-    _initializeDrafts();
+    _loadUserAndData();
+  }
+
+  Future<void> _loadUserAndData() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Decodificar o JWT para pegar o ID do usuario logado (user_id)
+    // Para facilitar, vamos assumir que salvamos o user_id no login_controller
+    // mas se nao salvamos, vamos buscar do token ou SharedPreferences se disponivel
+    final userIdStr = prefs.getString('user_id');
+    if (userIdStr != null) {
+      _currentUserId = int.tryParse(userIdStr);
+    }
+
+    await _controller.loadDependencies();
+    
+    // Se o usuario logado estiver na lista de profissionais, define como padrao
+    if (_currentUserId != null) {
+      setState(() {
+        _globalProfessionalId = _currentUserId;
+        _initializeDrafts();
+      });
+    } else {
+      if (mounted) setState(() => _initializeDrafts());
+    }
   }
 
   void _initializeDrafts() {
     int remaining = widget.totalSessions - widget.existingSessionsCount;
     if (remaining < 0) remaining = 0;
     
-    _drafts = List.generate(remaining, (index) => _AppointmentDraft());
+    _drafts = List.generate(remaining, (index) {
+      final d = _AppointmentDraft();
+      d.professionalId = _globalProfessionalId; // Define o padrao inicial
+      return d;
+    });
   }
 
   // Atualiza todos os rascunhos com o profissional selecionado

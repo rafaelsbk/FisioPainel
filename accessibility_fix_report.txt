@@ -1,5 +1,0 @@
-Fix: Improved accessibility of Bulk Scheduling.
-
-Frontend:
-- Added 'Planejar Sessões' button (Icon: playlist_add) to the main header of the Package card in 'PackageScreen'.
-- This ensures the option is visible without expanding the card.

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -29,14 +30,31 @@ class LoginController extends ChangeNotifier {
         passController.text,
       );
 
-      print(
-        '--- DEBUG: Sucesso! Token recebido: ${tokenDto.access.substring(0, 10)}... ---',
-      ); // <--- ADICIONE
-
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('access_token', tokenDto.access);
       await prefs.setString('refresh_token', tokenDto.refresh);
+      await prefs.setString('username', userController.text);
+      
+      // Decodifica o JWT para pegar o user_id
+      try {
+        final parts = tokenDto.access.split('.');
+        if (parts.length == 3) {
+          final payload = jsonDecode(
+            utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+          );
+          final userId = payload['user_id'];
+          if (userId != null) {
+            await prefs.setString('user_id', userId.toString());
+          }
+        }
+      } catch (e) {
+        print('Erro ao decodificar token: $e');
+      }
 
+      if (tokenDto.role != null) {
+        await prefs.setString('user_role', tokenDto.role!);
+      }
+      
       return true;
     } catch (e) {
       print(

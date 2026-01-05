@@ -1,8 +1,0 @@
-Implemented Service Type Management.
-
-Frontend:
-- Created 'ServiceTypeRepository' and 'ServiceTypeController'.
-- Created 'ServiceTypeScreen' for CRUD operations on service types.
-- Updated 'BaseLayoutScreen':
-    - Renamed "Atendimentos" menu to "Tipos de Atendimento".
-    - Linked it to the new 'ServiceTypeScreen'.

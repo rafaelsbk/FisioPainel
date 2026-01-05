@@ -1,6 +1,0 @@
-Implemented Bulk Scheduling feature.
-
-Frontend:
-- Created 'BulkScheduleDialog' to handle multiple appointment creations at once based on remaining package credits.
-- Updated 'PackageScreen' to use the new bulk scheduling dialog.
-- Each row in the dialog allows selecting Date, Time, and Professional.

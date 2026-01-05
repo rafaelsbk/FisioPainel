@@ -15,11 +15,26 @@ class BaseLayoutScreen extends StatefulWidget {
 
 class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   // Índice para controlar qual tela está sendo exibida na área de conteúdo
-  // 0: Home, 1: Pacientes, 2: Profissionais, 3: Pacotes, 4: Atendimentos
   int _selectedIndex = 0;
+  String? _userRole;
+  String? _username;
 
   // Título da página atual
   String _pageTitle = "Início";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userRole = prefs.getString('user_role');
+      _username = prefs.getString('username');
+    });
+  }
 
   // Função de Logout
   Future<void> _logout() async {
@@ -41,28 +56,44 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Barra superior simples com Título e Logout
       appBar: AppBar(
         title: Text(_pageTitle),
         backgroundColor: Colors.white,
         elevation: 1,
         actions: [
-          IconButton(
+          if (_username != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Center(
+                child: Text(
+                  "Você está logado como: ${_username!}",
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          TextButton.icon(
             icon: const Icon(Icons.exit_to_app, color: Colors.red),
+            label: const Text(
+              'SAIR',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
             onPressed: _logout,
-            tooltip: 'Sair',
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Row(
         children: [
           // --- SIDEBAR (Barra Lateral) ---
           Container(
-            width: 250, // Largura fixa da sidebar
-            color: Colors.blueGrey[900], // Cor escura profissional
+            width: 250,
+            color: Colors.blueGrey[900],
             child: Column(
               children: [
-                // Cabeçalho da Sidebar
                 Container(
                   height: 60,
                   alignment: Alignment.center,
@@ -77,7 +108,6 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
                   ),
                 ),
 
-                // Opção Home
                 ListTile(
                   leading: const Icon(Icons.dashboard, color: Colors.white70),
                   title: const Text(
@@ -89,7 +119,6 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
                   onTap: () => _selectPage(0, "Visão Geral"),
                 ),
 
-                // Opção Agenda
                 ListTile(
                   leading: const Icon(Icons.calendar_today, color: Colors.white70),
                   title: const Text(
@@ -103,10 +132,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
 
                 // --- SUBMENU DE CADASTROS ---
                 Theme(
-                  // Remove as bordas divisórias padrão do ExpansionTile
-                  data: Theme.of(
-                    context,
-                  ).copyWith(dividerColor: Colors.transparent),
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
                     leading: const Icon(
                       Icons.folder_shared,
@@ -118,18 +144,18 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
                     ),
                     iconColor: Colors.white,
                     collapsedIconColor: Colors.white70,
-                    childrenPadding: const EdgeInsets.only(
-                      left: 20,
-                    ), // Indentação
+                    childrenPadding: const EdgeInsets.only(left: 20),
                     children: [
                       _buildMenuItem(1, "Pacientes", Icons.person),
-                      _buildMenuItem(
-                        2,
-                        "Profissionais",
-                        Icons.medical_services,
-                      ),
+                      if (_userRole == 'ADMIN')
+                        _buildMenuItem(
+                          2,
+                          "Profissionais",
+                          Icons.medical_services,
+                        ),
                       _buildMenuItem(3, "Pacotes", Icons.inventory_2),
-                      _buildMenuItem(4, "Tipos de Atendimento", Icons.calendar_month),
+                      if (_userRole == 'ADMIN')
+                        _buildMenuItem(4, "Tipos de Atendimento", Icons.calendar_month),
                     ],
                   ),
                 ),
@@ -140,9 +166,9 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
           // --- ÁREA DE CONTEÚDO (Dinâmica) ---
           Expanded(
             child: Container(
-              color: Colors.grey[100], // Fundo claro para o conteúdo
+              color: Colors.grey[100],
               padding: const EdgeInsets.all(20),
-              child: _getContentWidget(), // Aqui a mágica acontece
+              child: _getContentWidget(),
             ),
           ),
         ],
@@ -150,7 +176,6 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
     );
   }
 
-  // Widget auxiliar para itens do submenu
   Widget _buildMenuItem(int index, String title, IconData icon) {
     return ListTile(
       leading: Icon(icon, size: 20, color: Colors.white70),
@@ -161,17 +186,14 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
     );
   }
 
-  // Função que retorna a TELA correspondente ao menu clicado
   Widget _getContentWidget() {
     switch (_selectedIndex) {
       case 0:
         return const Center(child: Text("Bem-vindo ao Dashboard Inicial"));
-
       case 1:
-        // AQUI ESTÁ A MUDANÇA: Retorna a tela de pacientes
         return const PatientsScreen();
       case 2:
-        return const ProfessionalsScreen(); // Agora exibe a tela real
+        return const ProfessionalsScreen();
       case 3:
         return const PackagesScreen();
       case 4:

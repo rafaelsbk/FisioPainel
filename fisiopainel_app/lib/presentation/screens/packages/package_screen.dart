@@ -195,6 +195,53 @@ class _PackagesScreenState extends State<PackagesScreen> {
     }
   }
 
+  Widget _buildStatusChip(String status) {
+    Color bgColor;
+    Color textColor;
+
+    switch (status.toUpperCase()) {
+      case 'REALIZADO':
+        bgColor = Colors.green[100]!;
+        textColor = Colors.green[900]!;
+        break;
+      case 'AGENDADO':
+        bgColor = Colors.blue[100]!;
+        textColor = Colors.blue[900]!;
+        break;
+      case 'FALTA':
+        bgColor = Colors.red[100]!;
+        textColor = Colors.red[900]!;
+        break;
+      case 'CANCELADO':
+        bgColor = Colors.grey[300]!;
+        textColor = Colors.grey[800]!;
+        break;
+      case 'ABERTO':
+        bgColor = Colors.orange[100]!;
+        textColor = Colors.orange[900]!;
+        break;
+      default:
+        bgColor = Colors.grey[200]!;
+        textColor = Colors.black87;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -363,7 +410,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                                           trailing: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Chip(label: Text(appt.status)),
+                                              _buildStatusChip(appt.status),
                                               const SizedBox(width: 8),
                                               IconButton(
                                                 icon: const Icon(Icons.edit, color: Colors.blue),

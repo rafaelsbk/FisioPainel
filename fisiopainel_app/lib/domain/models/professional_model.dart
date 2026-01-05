@@ -1,3 +1,5 @@
+import 'audit_fields.dart';
+
 class ProfessionalModel {
   final int? id;
   final String username;
@@ -8,9 +10,11 @@ class ProfessionalModel {
   final String phoneNumber; // Mapeia para telepone_number
   final String cpf;
   final String crefito;
+  final String? role;
   final double? percentualRepasse;
   final double? valorRepasseFixo;
   final bool isActive;
+  final AuditFields? audit;
 
   ProfessionalModel({
     this.id,
@@ -22,9 +26,11 @@ class ProfessionalModel {
     required this.phoneNumber,
     required this.cpf,
     required this.crefito,
+    this.role,
     this.percentualRepasse,
     this.valorRepasseFixo,
     this.isActive = true,
+    this.audit,
   });
 
   // Getter auxiliar para exibir nome completo
