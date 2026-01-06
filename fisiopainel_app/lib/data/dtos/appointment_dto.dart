@@ -10,6 +10,8 @@ class AppointmentDto {
       professionalId: json['profissional'],
       professionalName: json['nome_profissional'],
       patientName: json['nome_paciente'],
+      sessionProgress: json['progresso_sessao'],
+      packageTotalValue: json['valor_total_pacote'],
     );
   }
 

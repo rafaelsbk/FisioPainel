@@ -100,6 +100,8 @@ class PacoteSerializer(serializers.ModelSerializer):
 class AgendamentoSerializer(serializers.ModelSerializer):
     nome_profissional = serializers.SerializerMethodField()
     nome_paciente = serializers.SerializerMethodField()
+    progresso_sessao = serializers.SerializerMethodField()
+    valor_total_pacote = serializers.SerializerMethodField()
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
     
@@ -112,6 +114,31 @@ class AgendamentoSerializer(serializers.ModelSerializer):
 
     def get_nome_paciente(self, obj):
         return obj.pacote.paciente.complete_name if obj.pacote and obj.pacote.paciente else None
+
+    def get_valor_total_pacote(self, obj):
+        return str(obj.pacote.valor_total) if obj.pacote else None
+
+    def get_progresso_sessao(self, obj):
+        if not obj.pacote:
+            return None
+        # Count appointments for this package that are REALIZADO or FALTA (consumed sessions)
+        # up to this one, or just total consumed vs total package
+        
+        # Option 1: "This is session X of Y" based on ID or date
+        # Option 2: "X/Y Consumed" (general status)
+        
+        # Let's go with "X/Y" where X is the count of realized/falta appointments up to now.
+        total_sessions = obj.pacote.quantidade_total
+        
+        # Get all appointments for this package ordered by date
+        # We can't easily say "this is the 3rd one" without context of all of them.
+        # But we can return "X/Y" where X is total used sessions for the package.
+        
+        used_sessions = obj.pacote.agendamentos.filter(
+            status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
+        ).count()
+        
+        return f"{used_sessions}/{total_sessions}"
 
 class SolicitacaoAgendamentoSerializer(serializers.ModelSerializer):
     solicitante_nome = serializers.ReadOnlyField(source='solicitante.username')

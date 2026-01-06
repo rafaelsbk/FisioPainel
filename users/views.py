@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
+from decimal import Decimal
 from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento
 from .serializers import UserSerializer, PacienteSerializer, TipoAtendimentoSerializer, PacoteSerializer, AgendamentoSerializer, SolicitacaoAgendamentoSerializer
 from .permissions import IsAdminRole, IsProfessionalOwnerOrAdmin
@@ -202,3 +203,119 @@ class SolicitacaoAgendamentoViewSet(viewsets.ModelViewSet):
             return Response({'status': 'Solicitação recusada. O agendamento agora está pendente (Aberto).'})
         
         return Response({'error': 'Ação inválida. Use ACEITAR ou RECUSAR.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class RelatorioViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def financeiro(self, request):
+        profissional_id = request.query_params.get('profissional_id')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        if not profissional_id or not start_date or not end_date:
+            return Response(
+                {'error': 'Parâmetros profissional_id, start_date e end_date são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            appointments = Agendamento.objects.filter(
+                profissional_id=profissional_id,
+                data_hora__date__range=[start_date, end_date],
+                status=Agendamento.Status.REALIZADO
+            ).select_related('pacote', 'profissional')
+
+            detailed_list = []
+            total_receita = Decimal('0.00')
+            total_repasse = Decimal('0.00')
+            total_studio = Decimal('0.00')
+
+            for appt in appointments:
+                # 1. Valor da sessão (Receita)
+                valor_sessao = appt.pacote.valor_por_sessao
+                
+                # 2. Cálculo do Repasse
+                repasse = Decimal('0.00')
+                profissional = appt.profissional
+                
+                if profissional.valor_repasse_fixo and profissional.valor_repasse_fixo > 0:
+                    repasse = profissional.valor_repasse_fixo
+                elif profissional.percentual_repasse and profissional.percentual_repasse > 0:
+                    repasse = valor_sessao * (profissional.percentual_repasse / Decimal('100.00'))
+                
+                # 3. Lucro Studio
+                lucro_studio = valor_sessao - repasse
+
+                # Add to totals
+                total_receita += valor_sessao
+                total_repasse += repasse
+                total_studio += lucro_studio
+
+                # Calculate session progress
+                total_sessions = appt.pacote.quantidade_total
+                used_sessions = appt.pacote.agendamentos.filter(
+                    status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
+                ).count()
+                progresso = f"{used_sessions}/{total_sessions}"
+
+                # Add to detailed list
+                detailed_list.append({
+                    'id': appt.id,
+                    'data_hora': appt.data_hora,
+                    'paciente': appt.pacote.paciente.complete_name,
+                    'valor_sessao': str(valor_sessao),
+                    'valor_repasse': str(repasse.quantize(Decimal('0.00'))),
+                    'lucro_studio': str(lucro_studio.quantize(Decimal('0.00'))),
+                    'valor_total_pacote': str(appt.pacote.valor_total),
+                    'progresso_sessao': progresso,
+                })
+
+            return Response({
+                'detalhes': detailed_list,
+                'resumo': {
+                    'total_receita': str(total_receita.quantize(Decimal('0.00'))),
+                    'total_repasse': str(total_repasse.quantize(Decimal('0.00'))),
+                    'total_studio': str(total_studio.quantize(Decimal('0.00')))
+                }
+            })
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def profissional(self, request):
+        profissional_id = request.query_params.get('profissional_id')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        if not profissional_id or not start_date or not end_date:
+            return Response(
+                {'error': 'Parâmetros profissional_id, start_date e end_date são obrigatórios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            appointments = Agendamento.objects.filter(
+                profissional_id=profissional_id,
+                data_hora__date__range=[start_date, end_date],
+                status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
+            ).order_by('data_hora')
+
+            serializer = AgendamentoSerializer(appointments, many=True)
+            
+            # Calculate totals
+            total_realizado = appointments.filter(status=Agendamento.Status.REALIZADO).count()
+            total_falta = appointments.filter(status=Agendamento.Status.FALTA).count()
+            
+            return Response({
+                'agendamentos': serializer.data,
+                'resumo': {
+                    'total_realizado': total_realizado,
+                    'total_falta': total_falta,
+                    'total_geral': total_realizado + total_falta
+                }
+            })
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
