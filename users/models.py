@@ -3,9 +3,9 @@ from django.db import models
 
 class AuditModel(models.Model):
     criado_por = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='%(class)s_criados')
-    data_criacao = models.DateTimeField(auto_now_add=True)
+    data_criacao = models.DateTimeField(auto_now_add=True, null=True)
     editado_por = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='%(class)s_editados')
-    data_ultima_edicao = models.DateTimeField(auto_now=True)
+    data_ultima_edicao = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         abstract = True
@@ -84,3 +84,19 @@ class Agendamento(AuditModel):
 
     def __str__(self):
         return f"Agendamento para {self.pacote.paciente.complete_name} com {self.profissional.username} em {self.data_hora}"
+
+class SolicitacaoAgendamento(AuditModel):
+    class Status(models.TextChoices):
+        PENDENTE = "PENDENTE", "Pendente"
+        ACEITO = "ACEITO", "Aceito"
+        RECUSADO = "RECUSADO", "Recusado"
+
+    solicitante = models.ForeignKey('User', on_delete=models.CASCADE, related_name='solicitacoes_enviadas')
+    profissional_solicitado = models.ForeignKey('User', on_delete=models.CASCADE, related_name='solicitacoes_recebidas', limit_choices_to={'role': User.Role.PROFISSIONAL})
+    agendamento = models.ForeignKey('Agendamento', on_delete=models.CASCADE, related_name='solicitacoes')
+    status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDENTE)
+    mensagem = models.TextField(blank=True, null=True)
+    visto = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Solicitação de {self.solicitante.username} para {self.profissional_solicitado.username} - {self.status}"

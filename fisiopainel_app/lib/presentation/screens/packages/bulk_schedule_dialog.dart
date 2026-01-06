@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/appointment_controller.dart';
+import '../../controllers/notification_controller.dart';
 import '../../../domain/models/appointment_model.dart';
+import '../../../data/repositories/appointment_request_repository.dart';
+import '../../../domain/models/appointment_request_model.dart';
 
 class BulkScheduleDialog extends StatefulWidget {
   final int packageId;
@@ -127,6 +130,9 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
     }
 
     int successCount = 0;
+    int requestCount = 0;
+    final requestRepo = AppointmentRequestRepository();
+
     for (var draft in validDrafts) {
       final dt = DateTime(
         draft.date!.year,
@@ -136,26 +142,63 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
         draft.time!.minute,
       );
 
+      // Check if it's a request (different professional)
+      // Se _currentUserId for nulo (não logado?), assume que é request se professionalId não for nulo
+      // Mas assumimos _currentUserId carregado.
+      final isRequest = draft.professionalId != null && _currentUserId != null && draft.professionalId != _currentUserId;
+
       final appointment = AppointmentModel(
         id: 0,
         packageId: widget.packageId,
         dateTime: dt,
         status: 'AGENDADO',
-        professionalId: draft.professionalId,
+        professionalId: isRequest ? null : draft.professionalId,
       );
 
-      final success = await _controller.createAppointment(appointment);
-      if (success) successCount++;
+      final created = await _controller.createAppointment(appointment);
+      if (created != null) {
+        if (isRequest) {
+           try {
+             final request = AppointmentRequestModel(
+               id: 0,
+               solicitanteId: _currentUserId ?? 0,
+               solicitanteName: '',
+               profissionalSolicitadoId: draft.professionalId!,
+               profissionalSolicitadoName: '',
+               agendamentoId: created.id,
+               status: 'PENDENTE',
+               dataCriacao: DateTime.now(),
+               message: 'Solicitação de agendamento via pacote',
+             );
+             
+             await requestRepo.createRequest(request);
+             requestCount++;
+           } catch (e) {
+             print("Erro ao criar solicitação: $e");
+           }
+        } else {
+           successCount++;
+        }
+      }
     }
+
+    // Refresh notification count just in case (though these are outgoing requests, 
+    // maybe we want to see them? The current count logic includes outgoing responses, not outgoing requests pending)
+    // But it's good practice.
+    NotificationController().fetchCount();
 
     if (mounted) {
       setState(() => _isSubmitting = false);
       Navigator.pop(context, true); // Retorna true para recarregar
       
-      if (successCount > 0) {
+      String msg = "";
+      if (successCount > 0) msg += "$successCount agendamentos criados. ";
+      if (requestCount > 0) msg += "$requestCount solicitações enviadas.";
+      
+      if (msg.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("$successCount agendamentos criados com sucesso!"),
+            content: Text(msg),
             backgroundColor: Colors.green,
           ),
         );

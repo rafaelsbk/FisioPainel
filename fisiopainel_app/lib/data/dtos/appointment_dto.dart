@@ -9,6 +9,7 @@ class AppointmentDto {
       status: json['status'],
       professionalId: json['profissional'],
       professionalName: json['nome_profissional'],
+      patientName: json['nome_paciente'],
     );
   }
 

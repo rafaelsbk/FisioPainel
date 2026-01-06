@@ -2,8 +2,9 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento
-from .serializers import UserSerializer, PacienteSerializer, TipoAtendimentoSerializer, PacoteSerializer, AgendamentoSerializer
+from django.db.models import Q
+from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento
+from .serializers import UserSerializer, PacienteSerializer, TipoAtendimentoSerializer, PacoteSerializer, AgendamentoSerializer, SolicitacaoAgendamentoSerializer
 from .permissions import IsAdminRole, IsProfessionalOwnerOrAdmin
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -112,3 +113,92 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(editado_por=self.request.user)
+
+class SolicitacaoAgendamentoViewSet(viewsets.ModelViewSet):
+
+    queryset = SolicitacaoAgendamento.objects.all()
+
+    serializer_class = SolicitacaoAgendamentoSerializer
+
+    permission_classes = [IsAuthenticated]
+
+
+
+    def get_queryset(self):
+
+        user = self.request.user
+
+        return SolicitacaoAgendamento.objects.filter(
+
+            Q(solicitante=user) | Q(profissional_solicitado=user)
+
+        ).order_by('-data_criacao')
+
+
+
+    def perform_create(self, serializer):
+
+        serializer.save(solicitante=self.request.user)
+
+
+
+    @action(detail=False, methods=['get'])
+    def count_unread(self, request):
+        user = request.user
+        
+        # Notifications relevant to me:
+        # 1. Requests sent TO me that are PENDING and NOT SEEN (I need to see the new request)
+        # 2. Requests sent BY me that are ACCEPTED/REJECTED and NOT SEEN (I need to see the response)
+        
+        qs = SolicitacaoAgendamento.objects.filter(
+            Q(profissional_solicitado=user, status=SolicitacaoAgendamento.Status.PENDENTE, visto=False) |
+            Q(solicitante=user, status__in=[SolicitacaoAgendamento.Status.ACEITO, SolicitacaoAgendamento.Status.RECUSADO], visto=False)
+        )
+        
+        count = qs.count()
+        return Response({'count': count})
+
+    @action(detail=False, methods=['post'])
+    def mark_as_read(self, request):
+        user = request.user
+        # Marks all relevant unseen notifications as seen
+        qs = SolicitacaoAgendamento.objects.filter(
+            Q(profissional_solicitado=user, status=SolicitacaoAgendamento.Status.PENDENTE, visto=False) |
+            Q(solicitante=user, status__in=[SolicitacaoAgendamento.Status.ACEITO, SolicitacaoAgendamento.Status.RECUSADO], visto=False)
+        )
+        updated = qs.update(visto=True)
+        return Response({'updated': updated})
+
+    @action(detail=True, methods=['post'])
+    def responder(self, request, pk=None):
+        solicitacao = self.get_object()
+        acao = request.data.get('acao') # 'ACEITAR' or 'RECUSAR'
+        
+        if solicitacao.profissional_solicitado != request.user:
+            return Response({'error': 'Você não tem permissão para responder a esta solicitação.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        if solicitacao.status != SolicitacaoAgendamento.Status.PENDENTE:
+             return Response({'error': 'Esta solicitação já foi respondida.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if acao == 'ACEITAR':
+            solicitacao.status = SolicitacaoAgendamento.Status.ACEITO
+            # Update appointment
+            agendamento = solicitacao.agendamento
+            agendamento.profissional = request.user
+            agendamento.save()
+            solicitacao.save()
+            return Response({'status': 'Solicitação aceita e agendamento atualizado.'})
+            
+        elif acao == 'RECUSAR':
+            solicitacao.status = SolicitacaoAgendamento.Status.RECUSADO
+            solicitacao.save()
+
+            # Ao recusar, o agendamento volta para ABERTO (pendente) e sem profissional
+            agendamento = solicitacao.agendamento
+            agendamento.status = Agendamento.Status.ABERTO
+            agendamento.profissional = None
+            agendamento.save()
+
+            return Response({'status': 'Solicitação recusada. O agendamento agora está pendente (Aberto).'})
+        
+        return Response({'error': 'Ação inválida. Use ACEITAR ou RECUSAR.'}, status=status.HTTP_400_BAD_REQUEST)

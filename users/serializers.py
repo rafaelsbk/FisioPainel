@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento
+from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -99,6 +99,7 @@ class PacoteSerializer(serializers.ModelSerializer):
 
 class AgendamentoSerializer(serializers.ModelSerializer):
     nome_profissional = serializers.SerializerMethodField()
+    nome_paciente = serializers.SerializerMethodField()
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
     
@@ -108,3 +109,16 @@ class AgendamentoSerializer(serializers.ModelSerializer):
 
     def get_nome_profissional(self, obj):
         return obj.profissional.username if obj.profissional else None
+
+    def get_nome_paciente(self, obj):
+        return obj.pacote.paciente.complete_name if obj.pacote and obj.pacote.paciente else None
+
+class SolicitacaoAgendamentoSerializer(serializers.ModelSerializer):
+    solicitante_nome = serializers.ReadOnlyField(source='solicitante.username')
+    profissional_solicitado_nome = serializers.ReadOnlyField(source='profissional_solicitado.username')
+    agendamento_detalhes = AgendamentoSerializer(source='agendamento', read_only=True)
+
+    class Meta:
+        model = SolicitacaoAgendamento
+        fields = '__all__'
+        read_only_fields = ['solicitante', 'status', 'data_criacao', 'data_ultima_edicao']

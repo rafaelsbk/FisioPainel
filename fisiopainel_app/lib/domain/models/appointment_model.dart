@@ -7,6 +7,7 @@ class AppointmentModel {
   final String status;
   final int? professionalId;
   final String? professionalName;
+  final String? patientName;
   final AuditFields? audit;
 
   AppointmentModel({
@@ -16,6 +17,7 @@ class AppointmentModel {
     required this.status,
     this.professionalId,
     this.professionalName,
+    this.patientName,
     this.audit,
   });
 
@@ -28,6 +30,7 @@ class AppointmentModel {
       professionalId: json['profissional'],
       // Assuming the API might send professional's name directly
       professionalName: json['nome_profissional'],
+      patientName: json['nome_paciente'],
       audit: AuditFields.fromJson(json),
     );
   }

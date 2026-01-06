@@ -25,15 +25,15 @@ class AppointmentController extends ChangeNotifier {
     }
   }
 
-  Future<bool> createAppointment(AppointmentModel appointment) async {
+  Future<AppointmentModel?> createAppointment(AppointmentModel appointment) async {
     isLoading = true;
     notifyListeners();
     try {
-      await _repo.createAppointment(appointment);
-      return true;
+      final created = await _repo.createAppointment(appointment);
+      return created;
     } catch (e) {
       error = e.toString();
-      return false;
+      return null;
     } finally {
       isLoading = false;
       notifyListeners();
