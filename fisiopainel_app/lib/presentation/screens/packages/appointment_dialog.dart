@@ -83,7 +83,7 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
       );
 
       final success = await _controller.createAppointment(appointment);
-      if (success && mounted) {
+      if (success != null && _controller.isLoading == false) {
         Navigator.pop(context, true);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

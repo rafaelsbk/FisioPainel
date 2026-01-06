@@ -9,6 +9,7 @@ import 'service_types/service_type_screen.dart';
 import 'appointments/global_appointments_screen.dart';
 import 'notifications_screen.dart';
 import 'dashboard_screen.dart';
+import 'reports/reports_screen.dart';
 
 class BaseLayoutScreen extends StatefulWidget {
   const BaseLayoutScreen({super.key});
@@ -26,22 +27,17 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   // Título da página atual
   String _pageTitle = "Início";
   final NotificationController _notifController = NotificationController();
-  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    // Fetch count only once on init (login/startup)
     _notifController.fetchCount();
-    // Poll every 30 seconds
-    _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _notifController.fetchCount();
-    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     super.dispose();
   }
 
@@ -189,6 +185,17 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
                   onTap: () => _selectPage(5, "Agenda de Atendimentos"),
                 ),
 
+                ListTile(
+                  leading: const Icon(Icons.analytics, color: Colors.white70),
+                  title: const Text(
+                    'Relatórios',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  selected: _selectedIndex == 7,
+                  selectedTileColor: Colors.blueGrey[700],
+                  onTap: () => _selectPage(7, "Relatórios"),
+                ),
+
                 // --- SUBMENU DE CADASTROS ---
                 Theme(
                   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -261,6 +268,8 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
               return const GlobalAppointmentsScreen();
             case 6:
               return const NotificationsScreen();
+            case 7:
+              return const ReportsScreen();
             default:
               return const Center(child: Text("Página não encontrada"));
           }

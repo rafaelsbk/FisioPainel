@@ -8,6 +8,8 @@ class AppointmentModel {
   final int? professionalId;
   final String? professionalName;
   final String? patientName;
+  final String? sessionProgress;
+  final String? packageTotalValue;
   final AuditFields? audit;
 
   AppointmentModel({
@@ -18,6 +20,8 @@ class AppointmentModel {
     this.professionalId,
     this.professionalName,
     this.patientName,
+    this.sessionProgress,
+    this.packageTotalValue,
     this.audit,
   });
 
@@ -31,6 +35,8 @@ class AppointmentModel {
       // Assuming the API might send professional's name directly
       professionalName: json['nome_profissional'],
       patientName: json['nome_paciente'],
+      sessionProgress: json['progresso_sessao'],
+      packageTotalValue: json['valor_total_pacote'],
       audit: AuditFields.fromJson(json),
     );
   }
