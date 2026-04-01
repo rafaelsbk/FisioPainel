@@ -5,8 +5,10 @@ import '../../domain/models/service_type_model.dart';
 import '../dtos/service_type_dto.dart';
 import 'auth_repository.dart';
 
+import '../../config/api_config.dart';
+
 class ServiceTypeRepository {
-  final String apiBase = "http://127.0.0.1:8000/api/tipos-atendimento";
+  final String apiBase = "${ApiConfig.baseUrl}/tipos-atendimento";
 
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();

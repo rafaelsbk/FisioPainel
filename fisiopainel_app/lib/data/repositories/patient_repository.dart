@@ -5,9 +5,10 @@ import '../../domain/models/patient_model.dart';
 import '../dtos/patient_dto.dart';
 import 'auth_repository.dart';
 
+import '../../config/api_config.dart';
+
 class PatientRepository {
-  // Ajuste o IP conforme seu ambiente (10.0.2.2 Android, 127.0.0.1 Web)
-  final String baseUrl = "http://127.0.0.1:8000/api/pacientes";
+  final String baseUrl = "${ApiConfig.baseUrl}/pacientes";
 
   // Helper para pegar headers com Token
   Future<Map<String, String>> _getHeaders() async {
