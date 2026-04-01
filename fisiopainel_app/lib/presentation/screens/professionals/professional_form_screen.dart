@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../domain/models/professional_model.dart';
 import '../../controllers/professional_controller.dart';
+import '../../../domain/models/user_role_model.dart';
 
 class ProfessionalFormScreen extends StatefulWidget {
   final ProfessionalController controller;
@@ -29,7 +30,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
   final _cpfCtrl = TextEditingController();
   final _crefitoCtrl = TextEditingController();
   final _percentualCtrl = TextEditingController();
-  String _selectedRole = 'PROFISSIONAL';
+  int? _selectedRoleId;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -47,7 +48,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
       _cpfCtrl.text = p.cpf;
       _crefitoCtrl.text = p.crefito;
       _percentualCtrl.text = p.percentualRepasse?.toString() ?? '';
-      _selectedRole = p.role ?? 'PROFISSIONAL';
+      _selectedRoleId = p.usersRoles?.id;
     }
   }
 
@@ -71,7 +72,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
         phoneNumber: _phoneCtrl.text,
         cpf: _cpfCtrl.text,
         crefito: _crefitoCtrl.text,
-        role: _selectedRole,
+        usersRoles: _selectedRoleId != null ? UserRoleModel(id: _selectedRoleId!, nomeCargo: '', ativo: false) : null,
         percentualRepasse: double.tryParse(_percentualCtrl.text),
         valorRepasseFixo: null,
       );
@@ -207,28 +208,39 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                         },
                       ),
                       const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        value: _selectedRole,
-                        decoration: const InputDecoration(
-                          labelText: 'Nível de Acesso (Role)',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'ADMIN',
-                            child: Text('Administrador'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'PROFISSIONAL',
-                            child: Text('Profissional (Personal)'),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _selectedRole = val;
-                            });
+                      FutureBuilder<List<UserRoleModel>>(
+                        future: widget.controller.getUserRoles(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
                           }
+                          if (snapshot.hasError) {
+                            return const Text('Erro ao carregar os níveis de acesso');
+                          }
+                          final roles = snapshot.data ?? [];
+                          if (_selectedRoleId == null && roles.isNotEmpty) {
+                            _selectedRoleId = roles.firstWhere((r) => r.nomeCargo == 'Profissional', orElse: () => roles.first).id;
+                          }
+                          return DropdownButtonFormField<int?>(
+                            value: _selectedRoleId,
+                            decoration: const InputDecoration(
+                              labelText: 'Nível de Acesso (Role)',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: roles.map((role) {
+                              return DropdownMenuItem<int?>(
+                                value: role.id,
+                                child: Text(role.nomeCargo),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  _selectedRoleId = val;
+                                });
+                              }
+                            },
+                          );
                         },
                       ),
                       const SizedBox(height: 20),

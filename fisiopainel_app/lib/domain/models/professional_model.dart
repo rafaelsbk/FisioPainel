@@ -1,4 +1,5 @@
 import 'audit_fields.dart';
+import 'user_role_model.dart';
 
 class ProfessionalModel {
   final int? id;
@@ -10,7 +11,7 @@ class ProfessionalModel {
   final String phoneNumber; // Mapeia para telepone_number
   final String cpf;
   final String crefito;
-  final String? role;
+  final UserRoleModel? usersRoles;
   final double? percentualRepasse;
   final double? valorRepasseFixo;
   final bool isActive;
@@ -26,7 +27,7 @@ class ProfessionalModel {
     required this.phoneNumber,
     required this.cpf,
     required this.crefito,
-    this.role,
+    this.usersRoles,
     this.percentualRepasse,
     this.valorRepasseFixo,
     this.isActive = true,

@@ -10,6 +10,7 @@ import 'appointments/global_appointments_screen.dart';
 import 'notifications_screen.dart';
 import 'dashboard_screen.dart';
 import 'reports/reports_screen.dart';
+import 'roles/user_role_screen.dart';
 
 class BaseLayoutScreen extends StatefulWidget {
   const BaseLayoutScreen({super.key});
@@ -44,7 +45,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _userRole = prefs.getString('user_role');
+      _userRole = prefs.getString('user_role')?.toUpperCase();
       _username = prefs.getString('username');
     });
   }
@@ -222,6 +223,8 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
                       _buildMenuItem(3, "Pacotes", Icons.inventory_2),
                       if (_userRole == 'ADMIN')
                         _buildMenuItem(4, "Tipos de Atendimento", Icons.calendar_month),
+                      if (_userRole == 'ADMIN')
+                        _buildMenuItem(8, "Cargos e Permissões", Icons.admin_panel_settings),
                     ],
                   ),
                 ),
@@ -270,6 +273,8 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
               return const NotificationsScreen();
             case 7:
               return const ReportsScreen();
+            case 8:
+              return const UserRoleScreen();
             default:
               return const Center(child: Text("Página não encontrada"));
           }

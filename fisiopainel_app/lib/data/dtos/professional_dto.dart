@@ -1,5 +1,6 @@
 import '../../domain/models/audit_fields.dart';
 import '../../domain/models/professional_model.dart';
+import '../../domain/models/user_role_model.dart';
 
 class ProfessionalDto {
   static ProfessionalModel fromJson(Map<String, dynamic> json) {
@@ -14,7 +15,9 @@ class ProfessionalDto {
       phoneNumber: json['telepone_number'] ?? '',
       cpf: json['cpf'] ?? '',
       crefito: json['crefito'] ?? '',
-      role: json['role'],
+      usersRoles: json['users_roles'] != null
+          ? UserRoleModel.fromJson(json['users_roles'])
+          : null,
       audit: AuditFields.fromJson(json),
 
       percentualRepasse: json['percentual_repasse'] != null
@@ -33,7 +36,7 @@ class ProfessionalDto {
       "email": model.email,
       "first_name": model.firstName,
       "last_name": model.lastName,
-      "role": model.role ?? "PROFISSIONAL",
+      "users_roles_id": model.usersRoles?.id,
       "telepone_number": model.phoneNumber, // Mantendo o typo da API
       "cpf": model.cpf,
       "crefito": model.crefito,

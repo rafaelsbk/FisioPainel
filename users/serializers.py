@@ -1,45 +1,82 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento
+from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento, UserRole
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
         # Add custom claims
-        token['role'] = user.role
+        role = user.users_roles
+        token['role'] = role.nome_cargo.upper() if role else None
         token['username'] = user.username
         token['is_staff'] = user.is_staff
+        
+        if role:
+            token['permissions'] = {
+                'pode_gerenciar_usuarios': role.pode_gerenciar_usuarios,
+                'pode_gerenciar_pacientes': role.pode_gerenciar_pacientes,
+                'pode_gerenciar_pacotes': role.pode_gerenciar_pacotes,
+                'pode_gerenciar_agendamentos': role.pode_gerenciar_agendamentos,
+                'pode_gerenciar_tipos_atendimento': role.pode_gerenciar_tipos_atendimento,
+                'visualizar_tudo': role.visualizar_tudo,
+                'eh_profissional': role.eh_profissional,
+            }
         return token
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        data['role'] = self.user.role
+        role = self.user.users_roles
+        data['role'] = role.nome_cargo.upper() if role else None
         data['username'] = self.user.username
+        if role:
+            data['permissions'] = {
+                'pode_gerenciar_usuarios': role.pode_gerenciar_usuarios,
+                'pode_gerenciar_pacientes': role.pode_gerenciar_pacientes,
+                'pode_gerenciar_pacotes': role.pode_gerenciar_pacotes,
+                'pode_gerenciar_agendamentos': role.pode_gerenciar_agendamentos,
+                'pode_gerenciar_tipos_atendimento': role.pode_gerenciar_tipos_atendimento,
+                'visualizar_tudo': role.visualizar_tudo,
+                'eh_profissional': role.eh_profissional,
+            }
         return data
+
+class UserRoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserRole
+        fields = [
+            'id', 'nome_cargo', 'ativo', 
+            'pode_gerenciar_usuarios', 'pode_gerenciar_pacientes', 
+            'pode_gerenciar_pacotes', 'pode_gerenciar_agendamentos', 
+            'pode_gerenciar_tipos_atendimento', 'visualizar_tudo', 'eh_profissional'
+        ]
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
+    users_roles = UserRoleSerializer(read_only=True)
+    users_roles_id = serializers.PrimaryKeyRelatedField(
+        queryset=UserRole.objects.all(), source='users_roles', write_only=True, allow_null=True
+    )
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'password', 'first_name', 'last_name', 
-            'role', 'telepone_number', 'cpf', 'crefito', 'percentual_repasse', 
+            'users_roles', 'users_roles_id', 'telepone_number', 'cpf', 'crefito', 'percentual_repasse', 
             'valor_repasse_fixo', 'is_active', 'data_criacao', 'data_ultima_edicao',
             'criado_por_nome', 'editado_por_nome'
         ]
 
     def create(self, validated_data):
         password = validated_data.pop('password')
-        role = validated_data.get('role')
+        user_role = validated_data.get('users_roles')
         
-        # Se for ADMIN, garantimos que tenha acesso ao painel admin do Django também
-        if role == User.Role.ADMIN:
+        # Se tem permissão de gerenciar usuários, damos acesso ao staff do Django
+        if user_role and user_role.pode_gerenciar_usuarios:
             validated_data['is_staff'] = True
-            validated_data['is_superuser'] = True
+            validated_data['is_superuser'] = True # Mantemos superuser para quem pode gerenciar usuários
             
         user = User.objects.create_user(**validated_data)
         user.set_password(password)
@@ -48,13 +85,13 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
-        role = validated_data.get('role', instance.role)
+        user_role = validated_data.get('users_roles', instance.users_roles)
 
-        # Se a role for alterada para ADMIN, atualiza permissões de staff
-        if role == User.Role.ADMIN:
+        # Atualiza permissões de staff baseado na role
+        if user_role and user_role.pode_gerenciar_usuarios:
             instance.is_staff = True
             instance.is_superuser = True
-        elif role == User.Role.PROFISSIONAL:
+        else:
             instance.is_staff = False
             instance.is_superuser = False
 

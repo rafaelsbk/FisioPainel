@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../domain/models/professional_model.dart';
 import '../../data/repositories/professional_repository.dart';
+import '../../domain/models/user_role_model.dart';
+import '../../data/repositories/user_role_repository.dart';
 
 class ProfessionalController extends ChangeNotifier {
   final ProfessionalRepository repository = ProfessionalRepository();
+  final UserRoleRepository _userRoleRepository = UserRoleRepository();
 
   // Lista "Original" (Backup de tudo que veio da API)
   List<ProfessionalModel> _allProfessionals = [];
@@ -13,6 +16,16 @@ class ProfessionalController extends ChangeNotifier {
 
   bool isLoading = false;
   String error = '';
+
+  Future<List<UserRoleModel>> getUserRoles() async {
+    try {
+      return await _userRoleRepository.getUserRoles();
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+      return [];
+    }
+  }
 
   // Carregar da API
   Future<void> fetchProfessionals() async {

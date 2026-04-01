@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Importa os DTOs (Data Transfer Objects)
@@ -13,7 +14,7 @@ class AuthRepository {
   // CONFIGURAÇÃO DA URL BASE
   // Use 'http://127.0.0.1:8000/api' para Web
   // Use 'http://10.0.2.2:8000/api' se estiver no Emulador Android
-  final String baseUrl = "http://127.0.0.1:8000/api";
+  final String baseUrl = kIsWeb ? "http://127.0.0.1:8000/api" : "http://10.0.2.2:8000/api";
 
   /// ---------------------------------------------------
   /// 1. MÉTODO DE LOGIN (Obter o Token)
