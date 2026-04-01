@@ -2,21 +2,51 @@ from rest_framework import permissions
 from .models import User
 
 class IsAdminRole(permissions.BasePermission):
-    """Permite acesso apenas a administradores."""
+    """Permite acesso a quem tem permissão de gerenciar usuários ou é superuser."""
     def has_permission(self, request, view):
         return request.user.is_authenticated and (
-            request.user.is_staff or getattr(request.user, 'role', '') == User.Role.ADMIN
+            request.user.is_superuser or (request.user.users_roles and request.user.users_roles.pode_gerenciar_usuarios)
         )
 
 class IsProfessionalOwnerOrAdmin(permissions.BasePermission):
     """
     Regra: 
-    - Admin vê tudo.
-    - Profissional só vê/edita o que é dele (Pacientes, Agendamentos, Pacotes).
+    - Se tem flag visualizar_tudo ou é superuser, vê tudo.
+    - Caso contrário, só vê/edita o que é dele (Pacientes, Agendamentos, Pacotes).
     """
+    def has_permission(self, request, view):
+        user = request.user
+        if not user.is_authenticated:
+            return False
+        
+        # Se for uma ação de criação, verifica a flag específica
+        if request.method == 'POST':
+            role = user.users_roles
+            if not role:
+                return user.is_superuser
+            
+            from .models import Paciente, Pacote, Agendamento
+            # Aqui precisaríamos saber qual o modelo da view, mas o DRF geralmente injeta a view
+            # Vamos simplificar: se for Admin, pode tudo. Se não, checa as flags.
+            if user.is_superuser or role.pode_gerenciar_usuarios: # Admin total
+                return True
+                
+            # Mapeamento simples baseado no nome da View (pode ser melhorado)
+            view_name = view.__class__.__name__
+            if 'Paciente' in view_name:
+                return role.pode_gerenciar_pacientes
+            if 'Pacote' in view_name:
+                return role.pode_gerenciar_pacotes
+            if 'Agendamento' in view_name:
+                return role.pode_gerenciar_agendamentos
+            
+        return True
+
     def has_object_permission(self, request, view, obj):
         user = request.user
-        if user.is_staff or getattr(user, 'role', '') == User.Role.ADMIN:
+        role = user.users_roles
+        
+        if user.is_superuser or (role and role.visualizar_tudo):
             return True
         
         # Regra universal: Se o usuário criou o registro, ele tem acesso
@@ -35,7 +65,7 @@ class IsProfessionalOwnerOrAdmin(permissions.BasePermission):
         if hasattr(obj, 'paciente') and hasattr(obj.paciente, 'profissional_responsavel'):
             if obj.paciente.profissional_responsavel == user:
                 return True
-            # Verifica se o profissional tem agendamentos neste pacote (específico para modelo Pacote)
+            # Verifica se o profissional tem agendamentos neste pacote
             from .models import Pacote
             if isinstance(obj, Pacote):
                 return obj.agendamentos.filter(profissional=user).exists()

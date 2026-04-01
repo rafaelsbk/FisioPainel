@@ -5,15 +5,12 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory =
-    rootProject.layout.buildDirectory
-        .dir("../../build")
-        .get()
-rootProject.layout.buildDirectory.value(newBuildDir)
+val newBuildDir = file("C:/Users/rafae/FisioPainel_build")
+rootProject.layout.buildDirectory.value(rootProject.layout.dir(provider { newBuildDir }))
 
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
+    val newSubprojectBuildDir = File(newBuildDir, project.name)
+    project.layout.buildDirectory.value(project.layout.dir(provider { newSubprojectBuildDir }))
 }
 subprojects {
     project.evaluationDependsOn(":app")

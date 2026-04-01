@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from decimal import Decimal
-from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento
-from .serializers import UserSerializer, PacienteSerializer, TipoAtendimentoSerializer, PacoteSerializer, AgendamentoSerializer, SolicitacaoAgendamentoSerializer
+from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento, UserRole
+from .serializers import UserSerializer, PacienteSerializer, TipoAtendimentoSerializer, PacoteSerializer, AgendamentoSerializer, SolicitacaoAgendamentoSerializer, UserRoleSerializer
 from .permissions import IsAdminRole, IsProfessionalOwnerOrAdmin
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -35,12 +35,18 @@ class PacienteViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsProfessionalOwnerOrAdmin]
 
     def get_queryset(self):
-        return Paciente.objects.all()
+        user = self.request.user
+        if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
+            return Paciente.objects.all()
+        return Paciente.objects.filter(
+            Q(criado_por=user) | Q(profissional_responsavel=user)
+        ).distinct()
 
     def perform_create(self, serializer):
         user = self.request.user
         extra_data = {'criado_por': user}
-        if getattr(user, 'role', '') == User.Role.PROFISSIONAL:
+        # Se não pode visualizar tudo, ele é o responsável
+        if user.users_roles and not user.users_roles.visualizar_tudo:
             extra_data['profissional_responsavel'] = user
         serializer.save(**extra_data)
 
@@ -75,11 +81,10 @@ class PacoteViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff or getattr(user, 'role', '') == User.Role.ADMIN:
+        if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
             return Pacote.objects.all()
         # Retorna pacotes criados pelo profissional, de pacientes sob sua responsabilidade,
         # ou onde ele tenha pelo menos um agendamento vinculado.
-        from django.db.models import Q
         return Pacote.objects.filter(
             Q(criado_por=user) | 
             Q(paciente__profissional_responsavel=user) |
@@ -103,6 +108,14 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
     queryset = Agendamento.objects.all()
     serializer_class = AgendamentoSerializer
     permission_classes = [IsAuthenticated, IsProfessionalOwnerOrAdmin]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
+            return Agendamento.objects.all()
+        return Agendamento.objects.filter(
+            Q(criado_por=user) | Q(profissional=user) | Q(pacote__paciente__profissional_responsavel=user)
+        ).distinct()
 
     def perform_create(self, serializer):
         # Se um profissional foi enviado no JSON, usa ele. Caso contrário, usa o usuário logado.
@@ -128,6 +141,8 @@ class SolicitacaoAgendamentoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
 
         user = self.request.user
+        if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
+            return SolicitacaoAgendamento.objects.all().order_by('-data_criacao')
 
         return SolicitacaoAgendamento.objects.filter(
 
@@ -319,3 +334,12 @@ class RelatorioViewSet(viewsets.ViewSet):
 
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class UserRoleViewSet(viewsets.ModelViewSet):
+    queryset = UserRole.objects.all()
+    serializer_class = UserRoleSerializer
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminRole()]
