@@ -7,9 +7,11 @@ import '../dtos/package_dto.dart';
 import '../dtos/service_type_dto.dart';
 import 'auth_repository.dart';
 
+import '../../config/api_config.dart';
+
 class PackageRepository {
   // Base da API (sem o endpoint final)
-  final String apiBase = "http://127.0.0.1:8000/api";
+  final String apiBase = ApiConfig.baseUrl;
 
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();

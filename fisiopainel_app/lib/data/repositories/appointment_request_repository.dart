@@ -5,8 +5,10 @@ import '../../domain/models/appointment_request_model.dart';
 import '../dtos/appointment_request_dto.dart';
 import 'auth_repository.dart';
 
+import '../../config/api_config.dart';
+
 class AppointmentRequestRepository {
-  final String apiBase = "http://127.0.0.1:8000/api";
+  final String apiBase = ApiConfig.baseUrl;
 
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();

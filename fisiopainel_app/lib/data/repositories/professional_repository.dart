@@ -5,8 +5,10 @@ import '../../domain/models/professional_model.dart';
 import '../dtos/professional_dto.dart';
 import 'auth_repository.dart';
 
+import '../../config/api_config.dart';
+
 class ProfessionalRepository {
-  final String baseUrl = "http://127.0.0.1:8000/api/users";
+  final String baseUrl = "${ApiConfig.baseUrl}/users";
 
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
