@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'presentation/screens/home_screen.dart';
 import 'presentation/screens/login_screen.dart';
-import 'presentation/screens/base_layout_screen.dart'; // Importe a nova tela
+import 'presentation/screens/base_layout_screen.dart';
 import 'presentation/widgets/auth_guard.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inicializa a formatação de datas para Português Brasileiro
+  await initializeDateFormatting('pt_BR', null);
+  
   runApp(const MyApp());
 }
 
@@ -14,16 +20,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Projeto Flutter Django',
-      debugShowCheckedModeBanner: false, // Remove a faixa "DEBUG" no canto
+      title: 'FisioPainel',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      // Rota inicial (A primeira tela a abrir)
       initialRoute: '/',
-
-      // Mapa de Rotas
       routes: {
         '/': (context) => const HomeScreen(),
         '/login': (context) => const LoginScreen(),

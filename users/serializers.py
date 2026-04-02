@@ -52,7 +52,7 @@ class UserRoleSerializer(serializers.ModelSerializer):
         ]
 
 class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
     users_roles = UserRoleSerializer(read_only=True)
@@ -65,7 +65,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'password', 'first_name', 'last_name', 
             'users_roles', 'users_roles_id', 'telepone_number', 'cpf', 'crefito', 'percentual_repasse', 
-            'valor_repasse_fixo', 'is_active', 'data_criacao', 'data_ultima_edicao',
+            'valor_repasse_fixo', 'percentual_taxa_reposicao', 'valor_taxa_reposicao_fixo', 'is_active', 'data_criacao', 'data_ultima_edicao',
             'criado_por_nome', 'editado_por_nome'
         ]
 
@@ -129,6 +129,7 @@ class TipoAtendimentoSerializer(serializers.ModelSerializer):
 class PacoteSerializer(serializers.ModelSerializer):
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
+    nome_profissional = serializers.ReadOnlyField(source='profissional.username')
 
     class Meta:
         model = Pacote

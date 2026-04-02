@@ -14,6 +14,8 @@ class ProfessionalModel {
   final UserRoleModel? usersRoles;
   final double? percentualRepasse;
   final double? valorRepasseFixo;
+  final double? percentualTaxaReposicao;
+  final double? valorTaxaReposicaoFixo;
   final bool isActive;
   final AuditFields? audit;
 
@@ -30,6 +32,8 @@ class ProfessionalModel {
     this.usersRoles,
     this.percentualRepasse,
     this.valorRepasseFixo,
+    this.percentualTaxaReposicao,
+    this.valorTaxaReposicaoFixo,
     this.isActive = true,
     this.audit,
   });

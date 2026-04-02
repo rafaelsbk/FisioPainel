@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/appointment_controller.dart';
 import '../../../domain/models/appointment_model.dart';
 
@@ -28,13 +29,26 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
   Future<void> _updateStatus(String newStatus) async {
     setState(() => _isLoading = true);
 
+    int? professionalId = _currentAppointment.professionalId;
+
+    // Se estiver marcando como REALIZADO, tentamos atribuir ao profissional logado
+    // caso seja um atendimento sem profissional ou reposição.
+    if (newStatus == 'REALIZADO') {
+      final prefs = await SharedPreferences.getInstance();
+      final userIdStr = prefs.getString('user_id');
+      final userRole = prefs.getString('user_role');
+
+      if (userIdStr != null && (userRole == 'PROFISSIONAL' || userRole == 'ADMIN')) {
+        professionalId = int.parse(userIdStr);
+      }
+    }
+
     final updated = AppointmentModel(
       id: _currentAppointment.id,
       packageId: _currentAppointment.packageId,
       dateTime: _currentAppointment.dateTime,
       status: newStatus,
-      professionalId: _currentAppointment.professionalId,
-      // Keep other fields if needed, but repository update should handle ID based update
+      professionalId: professionalId,
     );
 
     final success = await _controller.updateAppointment(updated);
@@ -48,8 +62,8 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
              packageId: _currentAppointment.packageId,
              dateTime: _currentAppointment.dateTime,
              status: newStatus,
-             professionalId: _currentAppointment.professionalId,
-             professionalName: _currentAppointment.professionalName,
+             professionalId: professionalId, // Usamos o ID atualizado
+             professionalName: _currentAppointment.professionalName, // O nome virá atualizado na próxima carga
              patientName: _currentAppointment.patientName,
           );
         });

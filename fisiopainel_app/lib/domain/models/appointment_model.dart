@@ -24,20 +24,4 @@ class AppointmentModel {
     this.packageTotalValue,
     this.audit,
   });
-
-  factory AppointmentModel.fromJson(Map<String, dynamic> json) {
-    return AppointmentModel(
-      id: json['id'],
-      packageId: json['pacote'],
-      dateTime: json['data_hora'] != null ? DateTime.parse(json['data_hora']) : null,
-      status: json['status'],
-      professionalId: json['profissional'],
-      // Assuming the API might send professional's name directly
-      professionalName: json['nome_profissional'],
-      patientName: json['nome_paciente'],
-      sessionProgress: json['progresso_sessao'],
-      packageTotalValue: json['valor_total_pacote'],
-      audit: AuditFields.fromJson(json),
-    );
-  }
 }

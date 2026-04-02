@@ -1,5 +1,5 @@
 import '../../domain/models/appointment_request_model.dart';
-import '../../domain/models/appointment_model.dart';
+import 'appointment_dto.dart';
 
 class AppointmentRequestDto {
   static AppointmentRequestModel fromJson(Map<String, dynamic> json) {
@@ -11,7 +11,7 @@ class AppointmentRequestDto {
       profissionalSolicitadoName: json['profissional_solicitado_nome'],
       agendamentoId: json['agendamento'],
       agendamentoDetalhes: json['agendamento_detalhes'] != null 
-          ? AppointmentModel.fromJson(json['agendamento_detalhes']) 
+          ? AppointmentDto.fromJson(json['agendamento_detalhes']) 
           : null,
       status: json['status'],
       message: json['mensagem'],

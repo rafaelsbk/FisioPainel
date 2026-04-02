@@ -7,10 +7,7 @@ import '../../../domain/models/professional_model.dart';
 class EditAppointmentDialog extends StatefulWidget {
   final AppointmentModel appointment;
 
-  const EditAppointmentDialog({
-    super.key,
-    required this.appointment,
-  });
+  const EditAppointmentDialog({super.key, required this.appointment});
 
   @override
   State<EditAppointmentDialog> createState() => _EditAppointmentDialogState();
@@ -19,7 +16,7 @@ class EditAppointmentDialog extends StatefulWidget {
 class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
   final AppointmentController _controller = AppointmentController();
   final _formKey = GlobalKey<FormState>();
-  
+
   late TextEditingController _dateController;
   late TextEditingController _timeController;
   int? _selectedProfessionalId;
@@ -32,7 +29,7 @@ class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
     'AGENDADO',
     'REALIZADO',
     'FALTA',
-    'CANCELADO'
+    'CANCELADO',
   ];
 
   @override
@@ -47,15 +44,15 @@ class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
   void _initializeData() {
     _selectedProfessionalId = widget.appointment.professionalId;
     _selectedStatus = widget.appointment.status;
-    
+
     if (widget.appointment.dateTime != null) {
       _selectedDate = widget.appointment.dateTime;
       _selectedTime = TimeOfDay.fromDateTime(widget.appointment.dateTime!);
       _dateController = TextEditingController(
-        text: DateFormat('dd/MM/yyyy').format(widget.appointment.dateTime!)
+        text: DateFormat('dd/MM/yyyy').format(widget.appointment.dateTime!),
       );
       _timeController = TextEditingController(
-        text: DateFormat('HH:mm').format(widget.appointment.dateTime!)
+        text: DateFormat('HH:mm').format(widget.appointment.dateTime!),
       );
     } else {
       _dateController = TextEditingController();
@@ -93,7 +90,8 @@ class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
     if (picked != null) {
       setState(() {
         _selectedTime = picked;
-        _timeController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+        _timeController.text =
+            '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
       });
     }
   }
@@ -110,15 +108,19 @@ class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
           _selectedTime!.minute,
         );
       } else if (_selectedDate != null) {
-         // Se tiver data mas não hora, assume 00:00 ou mantém se já tinha?
-         // Melhor exigir ambos ou nenhum para "agendado".
-         // Se status for ABERTO, pode ser null.
+        // Se tiver data mas não hora, assume 00:00 ou mantém se já tinha?
+        // Melhor exigir ambos ou nenhum para "agendado".
+        // Se status for ABERTO, pode ser null.
       }
 
       // Se mudar para AGENDADO, exige data e hora
       if (_selectedStatus == 'AGENDADO' && finalDateTime == null) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Para status AGENDADO, data e hora são obrigatórios.')),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Para status AGENDADO, data e hora são obrigatórios.',
+            ),
+          ),
         );
         return;
       }
@@ -132,7 +134,7 @@ class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
       );
 
       final success = await _controller.updateAppointment(updatedAppointment);
-      
+
       if (mounted) {
         if (success) {
           Navigator.pop(context, true);
@@ -177,24 +179,19 @@ class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
                 decoration: const InputDecoration(labelText: 'Profissional'),
-                value: _selectedProfessionalId,
+                initialValue: _selectedProfessionalId,
                 items: _controller.professionalsList.map((p) {
-                  return DropdownMenuItem(
-                    value: p.id,
-                    child: Text(p.fullName),
-                  );
+                  return DropdownMenuItem(value: p.id, child: Text(p.fullName));
                 }).toList(),
-                onChanged: (val) => setState(() => _selectedProfessionalId = val),
+                onChanged: (val) =>
+                    setState(() => _selectedProfessionalId = val),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Status'),
-                value: _selectedStatus,
+                initialValue: _selectedStatus,
                 items: _statusOptions.map((s) {
-                  return DropdownMenuItem(
-                    value: s,
-                    child: Text(s),
-                  );
+                  return DropdownMenuItem(value: s, child: Text(s));
                 }).toList(),
                 onChanged: (val) => setState(() => _selectedStatus = val),
               ),

@@ -72,6 +72,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  Future<void> _clearAttended() async {
+    setState(() => _isLoading = true);
+    try {
+      await _repository.clearAttended();
+      _loadRequests();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao limpar notificações: $e')),
+        );
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -79,8 +94,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              TextButton.icon(
+                onPressed: _clearAttended,
+                icon: const Icon(Icons.delete_sweep, size: 20),
+                label: const Text("LIMPAR ATENDIDAS"),
+                style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _loadRequests,

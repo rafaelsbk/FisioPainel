@@ -88,7 +88,11 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_controller.error.isNotEmpty ? _controller.error : 'Erro ao agendar'),
+            content: Text(
+              _controller.error.isNotEmpty
+                  ? _controller.error
+                  : 'Erro ao agendar',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -109,7 +113,13 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Novo Agendamento', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Novo Agendamento',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _dateCtrl,
@@ -127,14 +137,15 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
                         labelText: 'Profissional',
                         border: OutlineInputBorder(),
                       ),
-                      value: _selectedProfessionalId,
+                      initialValue: _selectedProfessionalId,
                       items: _controller.professionalsList.map((p) {
                         return DropdownMenuItem(
                           value: p.id,
                           child: Text(p.fullName),
                         );
                       }).toList(),
-                      onChanged: (val) => setState(() => _selectedProfessionalId = val),
+                      onChanged: (val) =>
+                          setState(() => _selectedProfessionalId = val),
                     ),
                     const SizedBox(height: 25),
                     ElevatedButton(
@@ -145,7 +156,7 @@ class _AppointmentDialogState extends State<AppointmentDialog> {
                         minimumSize: const Size(double.infinity, 45),
                       ),
                       child: const Text('AGENDAR'),
-                    )
+                    ),
                   ],
                 ),
               ),
