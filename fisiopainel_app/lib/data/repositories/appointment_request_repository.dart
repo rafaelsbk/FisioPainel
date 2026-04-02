@@ -122,4 +122,21 @@ class AppointmentRequestRepository {
        print('Erro ao marcar como lido: ${response.body}');
     }
   }
+
+  Future<void> clearAttended() async {
+    var headers = await _getHeaders();
+    final url = Uri.parse('$apiBase/solicitacoes-agendamento/limpar_atendidas/');
+
+    var response = await http.post(url, headers: headers);
+
+    if (response.statusCode == 401) {
+      await AuthRepository().tryAutoLogin();
+      headers = await _getHeaders();
+      response = await http.post(url, headers: headers);
+    }
+
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao limpar notificações: ${response.body}');
+    }
+  }
 }

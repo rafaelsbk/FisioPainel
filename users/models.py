@@ -22,6 +22,8 @@ class User(AbstractUser, AuditModel):
     crefito = models.CharField(max_length=20, blank=True, null=True)
     percentual_repasse = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     valor_repasse_fixo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    percentual_taxa_reposicao = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    valor_taxa_reposicao_fixo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
     def __str__(self):
         return self.username
@@ -50,7 +52,7 @@ class Paciente(AuditModel):
     cpf = models.CharField(max_length=14, blank=True, null=True)
     rg = models.CharField(max_length=20, blank=True, null=True)
     is_active = models.BooleanField(default=True)
-    profissional_responsavel = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='pacientes', limit_choices_to={'users_roles__eh_profissional': True})
+    profissional_responsavel = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='pacientes')
 
     def __str__(self):
         return self.complete_name
@@ -68,12 +70,17 @@ class Pacote(AuditModel):
         CANCELADO = "CANCELADO", "Cancelado"
 
     paciente = models.ForeignKey('Paciente', on_delete=models.CASCADE, related_name='pacotes')
+    profissional = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='pacotes_responsaveis')
     tipo_atendimento = models.ForeignKey('TipoAtendimento', on_delete=models.CASCADE, related_name='pacotes')
     quantidade_total = models.IntegerField()
     valor_total = models.DecimalField(max_digits=10, decimal_places=2)
     valor_por_sessao = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.ATIVO)
     data_pagamento = models.DateTimeField(null=True, blank=True)
+    
+    # Scheduling fields
+    data_inicio = models.DateField(null=True, blank=True)
+    dias_semana = models.CharField(max_length=50, blank=True, null=True, help_text="Ex: 0,2,4 (seg, qua, sex)")
 
     def __str__(self):
         return f"Pacote {self.id} para {self.paciente.complete_name}"
@@ -91,7 +98,7 @@ class Agendamento(AuditModel):
         PAGO = "PAGO", "Pago"
 
     pacote = models.ForeignKey('Pacote', on_delete=models.CASCADE, related_name='agendamentos')
-    profissional = models.ForeignKey('User', on_delete=models.CASCADE, related_name='agendamentos', limit_choices_to={'users_roles__eh_profissional': True}, null=True, blank=True)
+    profissional = models.ForeignKey('User', on_delete=models.CASCADE, related_name='agendamentos', null=True, blank=True)
     data_hora = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.ABERTO)
     valor_repasse_calculado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -107,7 +114,7 @@ class SolicitacaoAgendamento(AuditModel):
         RECUSADO = "RECUSADO", "Recusado"
 
     solicitante = models.ForeignKey('User', on_delete=models.CASCADE, related_name='solicitacoes_enviadas')
-    profissional_solicitado = models.ForeignKey('User', on_delete=models.CASCADE, related_name='solicitacoes_recebidas', limit_choices_to={'users_roles__eh_profissional': True})
+    profissional_solicitado = models.ForeignKey('User', on_delete=models.CASCADE, related_name='solicitacoes_recebidas')
     agendamento = models.ForeignKey('Agendamento', on_delete=models.CASCADE, related_name='solicitacoes')
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.PENDENTE)
     mensagem = models.TextField(blank=True, null=True)

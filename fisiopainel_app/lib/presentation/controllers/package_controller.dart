@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 import '../../data/repositories/appointment_repository.dart';
 import '../../domain/models/package_model.dart';
 import '../../domain/models/patient_model.dart';
+import '../../domain/models/professional_model.dart';
 import '../../domain/models/service_type_model.dart';
 import '../../data/repositories/package_repository.dart';
 import '../../data/repositories/patient_repository.dart';
+import '../../data/repositories/professional_repository.dart';
 
 class PackageController extends ChangeNotifier {
   final PackageRepository _repo = PackageRepository();
   final PatientRepository _patientRepo = PatientRepository();
+  final ProfessionalRepository _professionalRepo = ProfessionalRepository();
   final AppointmentRepository _appointmentRepo = AppointmentRepository();
 
   List<PackageModel> packages = [];
   List<PatientModel> patientsList = [];
+  List<ProfessionalModel> professionalsList = [];
   List<ServiceTypeModel> serviceTypesList = [];
 
   bool isLoading = false;
@@ -40,6 +44,7 @@ class PackageController extends ChangeNotifier {
   Future<void> _fetchDependencies() async {
     // Reutiliza o repositório de pacientes que já criamos
     patientsList = await _patientRepo.getPatients();
+    professionalsList = await _professionalRepo.getProfessionals();
     serviceTypesList = await _repo.getServiceTypes();
   }
 

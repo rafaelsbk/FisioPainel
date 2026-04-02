@@ -56,7 +56,7 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
     }
 
     await _controller.loadDependencies();
-    
+
     // Se o usuario logado estiver na lista de profissionais, define como padrao
     if (_currentUserId != null) {
       setState(() {
@@ -71,7 +71,7 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
   void _initializeDrafts() {
     int remaining = widget.totalSessions - widget.existingSessionsCount;
     if (remaining < 0) remaining = 0;
-    
+
     _drafts = List.generate(remaining, (index) {
       final d = _AppointmentDraft();
       d.professionalId = _globalProfessionalId; // Define o padrao inicial
@@ -97,18 +97,24 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
-    
+
     if (date != null && mounted) {
       final time = await showTimePicker(
         context: context,
         initialTime: draft.time ?? const TimeOfDay(hour: 8, minute: 0),
       );
-      
+
       if (time != null) {
         setState(() {
           draft.date = date;
           draft.time = time;
-          final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+          final dt = DateTime(
+            date.year,
+            date.month,
+            date.day,
+            time.hour,
+            time.minute,
+          );
           draft.dateCtrl.text = DateFormat('dd/MM/yyyy HH:mm').format(dt);
         });
       }
@@ -123,7 +129,9 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
 
     if (validDrafts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Preencha pelo menos um agendamento com Data/Hora.")),
+        const SnackBar(
+          content: Text("Preencha pelo menos um agendamento com Data/Hora."),
+        ),
       );
       setState(() => _isSubmitting = false);
       return;
@@ -145,7 +153,10 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
       // Check if it's a request (different professional)
       // Se _currentUserId for nulo (não logado?), assume que é request se professionalId não for nulo
       // Mas assumimos _currentUserId carregado.
-      final isRequest = draft.professionalId != null && _currentUserId != null && draft.professionalId != _currentUserId;
+      final isRequest =
+          draft.professionalId != null &&
+          _currentUserId != null &&
+          draft.professionalId != _currentUserId;
 
       final appointment = AppointmentModel(
         id: 0,
@@ -158,31 +169,31 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
       final created = await _controller.createAppointment(appointment);
       if (created != null) {
         if (isRequest) {
-           try {
-             final request = AppointmentRequestModel(
-               id: 0,
-               solicitanteId: _currentUserId ?? 0,
-               solicitanteName: '',
-               profissionalSolicitadoId: draft.professionalId!,
-               profissionalSolicitadoName: '',
-               agendamentoId: created.id,
-               status: 'PENDENTE',
-               dataCriacao: DateTime.now(),
-               message: 'Solicitação de agendamento via pacote',
-             );
-             
-             await requestRepo.createRequest(request);
-             requestCount++;
-           } catch (e) {
-             print("Erro ao criar solicitação: $e");
-           }
+          try {
+            final request = AppointmentRequestModel(
+              id: 0,
+              solicitanteId: _currentUserId ?? 0,
+              solicitanteName: '',
+              profissionalSolicitadoId: draft.professionalId!,
+              profissionalSolicitadoName: '',
+              agendamentoId: created.id,
+              status: 'PENDENTE',
+              dataCriacao: DateTime.now(),
+              message: 'Solicitação de agendamento via pacote',
+            );
+
+            await requestRepo.createRequest(request);
+            requestCount++;
+          } catch (e) {
+            print("Erro ao criar solicitação: $e");
+          }
         } else {
-           successCount++;
+          successCount++;
         }
       }
     }
 
-    // Refresh notification count just in case (though these are outgoing requests, 
+    // Refresh notification count just in case (though these are outgoing requests,
     // maybe we want to see them? The current count logic includes outgoing responses, not outgoing requests pending)
     // But it's good practice.
     NotificationController().fetchCount();
@@ -190,17 +201,14 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
     if (mounted) {
       setState(() => _isSubmitting = false);
       Navigator.pop(context, true); // Retorna true para recarregar
-      
+
       String msg = "";
       if (successCount > 0) msg += "$successCount agendamentos criados. ";
       if (requestCount > 0) msg += "$requestCount solicitações enviadas.";
-      
+
       if (msg.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: Colors.green,
-          ),
+          SnackBar(content: Text(msg), backgroundColor: Colors.green),
         );
       }
     }
@@ -218,25 +226,34 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Planejar Agendamentos', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close))
+                const Text(
+                  'Planejar Agendamentos',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
               ],
             ),
             const SizedBox(height: 10),
-            
+
             // --- HEADER DE SELEÇÃO EM MASSA ---
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: Colors.blue[50],
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[200]!)
+                border: Border.all(color: Colors.blue[200]!),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.person_search, color: Colors.blue),
                   const SizedBox(width: 10),
-                  const Text("Profissional Padrão:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    "Profissional Padrão:",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonFormField<int>(
@@ -245,7 +262,7 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
                         border: InputBorder.none,
                       ),
                       hint: const Text("Selecione para aplicar a todos..."),
-                      value: _globalProfessionalId,
+                      initialValue: _globalProfessionalId,
                       items: _controller.professionalsList.map((p) {
                         return DropdownMenuItem(
                           value: p.id,
@@ -259,66 +276,75 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
               ),
             ),
             const SizedBox(height: 10),
-            
+
             Text('Restam ${_drafts.length} sessões para agendar.'),
             const Divider(),
-            
+
             Expanded(
               child: _controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _drafts.isEmpty
-                      ? const Center(child: Text("Todas as sessões já foram agendadas!"))
-                      : ListView.builder(
-                          itemCount: _drafts.length,
-                          itemBuilder: (ctx, i) {
-                            final draft = _drafts[i];
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 8),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(child: Text('${i + 1}')),
-                                    const SizedBox(width: 15),
-                                    Expanded(
-                                      flex: 2,
-                                      child: TextFormField(
-                                        controller: draft.dateCtrl,
-                                        readOnly: true,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Data e Hora',
-                                          prefixIcon: Icon(Icons.calendar_today),
-                                          isDense: true,
-                                          border: OutlineInputBorder(),
-                                        ),
-                                        onTap: () => _pickDateTime(i),
-                                      ),
+                  ? const Center(
+                      child: Text("Todas as sessões já foram agendadas!"),
+                    )
+                  : ListView.builder(
+                      itemCount: _drafts.length,
+                      itemBuilder: (ctx, i) {
+                        final draft = _drafts[i];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                CircleAvatar(child: Text('${i + 1}')),
+                                const SizedBox(width: 15),
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: draft.dateCtrl,
+                                    readOnly: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Data e Hora',
+                                      prefixIcon: Icon(Icons.calendar_today),
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      flex: 2,
-                                      child: DropdownButtonFormField<int>(
-                                        decoration: const InputDecoration(
-                                          labelText: 'Profissional',
-                                          isDense: true,
-                                          border: OutlineInputBorder(),
-                                        ),
-                                        value: draft.professionalId,
-                                        items: _controller.professionalsList.map((p) {
-                                          return DropdownMenuItem(
-                                            value: p.id,
-                                            child: Text(p.fullName, overflow: TextOverflow.ellipsis),
-                                          );
-                                        }).toList(),
-                                        onChanged: (val) => setState(() => draft.professionalId = val),
-                                      ),
-                                    ),
-                                  ],
+                                    onTap: () => _pickDateTime(i),
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: DropdownButtonFormField<int>(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Profissional',
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    initialValue: draft.professionalId,
+                                    items: _controller.professionalsList.map((
+                                      p,
+                                    ) {
+                                      return DropdownMenuItem(
+                                        value: p.id,
+                                        child: Text(
+                                          p.fullName,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) => setState(
+                                      () => draft.professionalId = val,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
             const SizedBox(height: 20),
             SizedBox(

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from decimal import Decimal
+from datetime import datetime, timedelta, time
 from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento, UserRole
 from .serializers import UserSerializer, PacienteSerializer, TipoAtendimentoSerializer, PacoteSerializer, AgendamentoSerializer, SolicitacaoAgendamentoSerializer, UserRoleSerializer
 from .permissions import IsAdminRole, IsProfessionalOwnerOrAdmin
@@ -92,7 +93,43 @@ class PacoteViewSet(viewsets.ModelViewSet):
         ).distinct()
 
     def perform_create(self, serializer):
-        serializer.save(criado_por=self.request.user)
+        # Se um profissional foi enviado no JSON, usa ele. Caso contrário, usa o usuário logado se ele for profissional.
+        profissional = serializer.validated_data.get('profissional')
+        if not profissional and self.request.user.users_roles and self.request.user.users_roles.eh_profissional:
+            profissional = self.request.user
+            
+        pacote = serializer.save(
+            criado_por=self.request.user,
+            profissional=profissional
+        )
+
+        # Lógica de Agendamento Automático
+        if pacote.data_inicio and pacote.dias_semana:
+            try:
+                # dias_semana vem como "0,2,4" (0=segunda, 6=domingo no Python weekday())
+                selected_days = [int(d) for d in pacote.dias_semana.split(',')]
+                
+                count = 0
+                current_date = pacote.data_inicio
+                
+                # Horário padrão para automação (pode ser expandido futuramente)
+                default_time = time(8, 0) 
+
+                while count < pacote.quantidade_total:
+                    if current_date.weekday() in selected_days:
+                        Agendamento.objects.create(
+                            pacote=pacote,
+                            profissional=profissional,
+                            data_hora=datetime.combine(current_date, default_time),
+                            status=Agendamento.Status.AGENDADO,
+                            criado_por=self.request.user
+                        )
+                        count += 1
+                    
+                    current_date += timedelta(days=1)
+            except Exception as e:
+                # Log or handle error if needed
+                print(f"Erro no agendamento automático: {e}")
 
     def perform_update(self, serializer):
         serializer.save(editado_por=self.request.user)
@@ -185,6 +222,18 @@ class SolicitacaoAgendamentoViewSet(viewsets.ModelViewSet):
         updated = qs.update(visto=True)
         return Response({'updated': updated})
 
+    @action(detail=False, methods=['post'])
+    def limpar_atendidas(self, request):
+        user = request.user
+        # Remove notificações que já foram respondidas (ACEITO ou RECUSADO)
+        # relacionadas ao usuário logado (seja ele o solicitante ou o solicitado)
+        qs = SolicitacaoAgendamento.objects.filter(
+            Q(solicitante=user) | Q(profissional_solicitado=user),
+            status__in=[SolicitacaoAgendamento.Status.ACEITO, SolicitacaoAgendamento.Status.RECUSADO]
+        )
+        deleted_count, _ = qs.delete()
+        return Response({'deleted': deleted_count})
+
     @action(detail=True, methods=['post'])
     def responder(self, request, pk=None):
         solicitacao = self.get_object()
@@ -235,11 +284,12 @@ class RelatorioViewSet(viewsets.ViewSet):
             )
 
         try:
+            # Busca agendamentos onde o profissional é quem realizou OU é o dono do pacote
             appointments = Agendamento.objects.filter(
-                profissional_id=profissional_id,
+                Q(profissional_id=profissional_id) | Q(pacote__profissional_id=profissional_id),
                 data_hora__date__range=[start_date, end_date],
                 status=Agendamento.Status.REALIZADO
-            ).select_related('pacote', 'profissional')
+            ).select_related('pacote', 'profissional', 'pacote__profissional').distinct()
 
             detailed_list = []
             total_receita = Decimal('0.00')
@@ -250,21 +300,49 @@ class RelatorioViewSet(viewsets.ViewSet):
                 # 1. Valor da sessão (Receita)
                 valor_sessao = appt.pacote.valor_por_sessao
                 
-                # 2. Cálculo do Repasse
-                repasse = Decimal('0.00')
-                profissional = appt.profissional
+                PO = appt.pacote.profissional
+                RP = appt.profissional
                 
-                if profissional.valor_repasse_fixo and profissional.valor_repasse_fixo > 0:
-                    repasse = profissional.valor_repasse_fixo
-                elif profissional.percentual_repasse and profissional.percentual_repasse > 0:
-                    repasse = valor_sessao * (profissional.percentual_repasse / Decimal('100.00'))
+                # 2. Cálculo do Repasse Padrão do DONO (para definir a fatia do Studio)
+                po_standard_repasse = Decimal('0.00')
+                if PO:
+                    if PO.valor_repasse_fixo and PO.valor_repasse_fixo > 0:
+                        po_standard_repasse = PO.valor_repasse_fixo
+                    elif PO.percentual_repasse and PO.percentual_repasse > 0:
+                        po_standard_repasse = valor_sessao * (PO.percentual_repasse / Decimal('100.00'))
                 
-                # 3. Lucro Studio
-                lucro_studio = valor_sessao - repasse
+                # 3. Fatia do Studio (Sempre fixa baseada no contrato do DONO)
+                lucro_studio = valor_sessao - po_standard_repasse
+                
+                # 4. Cálculo do Repasse para o Profissional do Relatório (profissional_id)
+                repasse_final_profissional = Decimal('0.00')
+                is_reposicao = False
+                
+                # Taxa de reposição do RP (se houver)
+                rp_replacement_fee = Decimal('0.00')
+                if RP and RP != PO:
+                    if RP.valor_taxa_reposicao_fixo and RP.valor_taxa_reposicao_fixo > 0:
+                        rp_replacement_fee = RP.valor_taxa_reposicao_fixo
+                    elif RP.percentual_taxa_reposicao and RP.percentual_taxa_reposicao > 0:
+                        rp_replacement_fee = valor_sessao * (RP.percentual_taxa_reposicao / Decimal('100.00'))
+
+                if str(RP.id) == str(profissional_id):
+                    # Caso A: O profissional do relatório REALIZOU o atendimento
+                    if RP != PO:
+                        is_reposicao = True
+                        repasse_final_profissional = rp_replacement_fee
+                    else:
+                        # Atendimento normal (ele é o dono e ele realizou)
+                        repasse_final_profissional = po_standard_repasse
+                elif PO and str(PO.id) == str(profissional_id):
+                    # Caso B: O profissional do relatório é o DONO, mas outro realizou (RP != PO)
+                    is_reposicao = True
+                    # O dono recebe o seu repasse padrão MENOS o que foi pago ao repositor
+                    repasse_final_profissional = po_standard_repasse - rp_replacement_fee
 
                 # Add to totals
                 total_receita += valor_sessao
-                total_repasse += repasse
+                total_repasse += repasse_final_profissional
                 total_studio += lucro_studio
 
                 # Calculate session progress
@@ -280,10 +358,13 @@ class RelatorioViewSet(viewsets.ViewSet):
                     'data_hora': appt.data_hora,
                     'paciente': appt.pacote.paciente.complete_name,
                     'valor_sessao': str(valor_sessao),
-                    'valor_repasse': str(repasse.quantize(Decimal('0.00'))),
+                    'valor_repasse': str(repasse_final_profissional.quantize(Decimal('0.00'))),
                     'lucro_studio': str(lucro_studio.quantize(Decimal('0.00'))),
                     'valor_total_pacote': str(appt.pacote.valor_total),
                     'progresso_sessao': progresso,
+                    'is_reposicao': is_reposicao,
+                    'dono_pacote': PO.username if PO else "N/A",
+                    'quem_realizou': RP.username if RP else "N/A"
                 })
 
             return Response({
@@ -311,15 +392,16 @@ class RelatorioViewSet(viewsets.ViewSet):
             )
 
         try:
+            # Busca agendamentos onde o profissional é quem realizou OU é o dono do pacote
             appointments = Agendamento.objects.filter(
-                profissional_id=profissional_id,
+                Q(profissional_id=profissional_id) | Q(pacote__profissional_id=profissional_id),
                 data_hora__date__range=[start_date, end_date],
                 status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
-            ).order_by('data_hora')
+            ).order_by('data_hora').distinct()
 
             serializer = AgendamentoSerializer(appointments, many=True)
             
-            # Calculate totals
+            # Vamos manter tudo o que retornou na query.
             total_realizado = appointments.filter(status=Agendamento.Status.REALIZADO).count()
             total_falta = appointments.filter(status=Agendamento.Status.FALTA).count()
             

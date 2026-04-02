@@ -26,6 +26,12 @@ class ProfessionalDto {
       valorRepasseFixo: json['valor_repasse_fixo'] != null
           ? double.tryParse(json['valor_repasse_fixo'].toString())
           : null,
+      percentualTaxaReposicao: json['percentual_taxa_reposicao'] != null
+          ? double.tryParse(json['percentual_taxa_reposicao'].toString())
+          : null,
+      valorTaxaReposicaoFixo: json['valor_taxa_reposicao_fixo'] != null
+          ? double.tryParse(json['valor_taxa_reposicao_fixo'].toString())
+          : null,
     );
   }
 
@@ -42,6 +48,8 @@ class ProfessionalDto {
       "crefito": model.crefito,
       "percentual_repasse": model.percentualRepasse?.toStringAsFixed(2),
       "valor_repasse_fixo": model.valorRepasseFixo?.toStringAsFixed(2),
+      "percentual_taxa_reposicao": model.percentualTaxaReposicao?.toStringAsFixed(2),
+      "valor_taxa_reposicao_fixo": model.valorTaxaReposicaoFixo?.toStringAsFixed(2),
     };
 
     // Só envia senha se ela existir (Criação)

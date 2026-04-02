@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../domain/models/professional_model.dart';
 import '../../controllers/professional_controller.dart';
 import '../../../domain/models/user_role_model.dart';
@@ -17,6 +18,8 @@ class ProfessionalFormScreen extends StatefulWidget {
   State<ProfessionalFormScreen> createState() => _ProfessionalFormScreenState();
 }
 
+enum TaxaReposicaoTipo { porcentagem, fixo }
+
 class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
@@ -30,9 +33,14 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
   final _cpfCtrl = TextEditingController();
   final _crefitoCtrl = TextEditingController();
   final _percentualCtrl = TextEditingController();
+  final _valorRepasseFixoCtrl = TextEditingController();
+  final _percentualTaxaReposicaoCtrl = TextEditingController();
+  final _valorTaxaReposicaoFixoCtrl = TextEditingController();
   int? _selectedRoleId;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  TaxaReposicaoTipo _taxaReposicaoTipo = TaxaReposicaoTipo.porcentagem;
 
   @override
   void initState() {
@@ -48,7 +56,16 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
       _cpfCtrl.text = p.cpf;
       _crefitoCtrl.text = p.crefito;
       _percentualCtrl.text = p.percentualRepasse?.toString() ?? '';
+      _valorRepasseFixoCtrl.text = p.valorRepasseFixo?.toString() ?? '';
+      _percentualTaxaReposicaoCtrl.text = p.percentualTaxaReposicao?.toString() ?? '';
+      _valorTaxaReposicaoFixoCtrl.text = p.valorTaxaReposicaoFixo?.toString() ?? '';
       _selectedRoleId = p.usersRoles?.id;
+
+      if (p.valorTaxaReposicaoFixo != null && p.valorTaxaReposicaoFixo! > 0) {
+        _taxaReposicaoTipo = TaxaReposicaoTipo.fixo;
+      } else {
+        _taxaReposicaoTipo = TaxaReposicaoTipo.porcentagem;
+      }
     }
   }
 
@@ -60,6 +77,14 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
         );
         return;
       }
+
+      double? percentualReposicao = _taxaReposicaoTipo == TaxaReposicaoTipo.porcentagem 
+          ? double.tryParse(_percentualTaxaReposicaoCtrl.text.replaceAll(',', '.')) 
+          : null;
+      double? valorReposicaoFixo = _taxaReposicaoTipo == TaxaReposicaoTipo.fixo 
+          ? double.tryParse(_valorTaxaReposicaoFixoCtrl.text.replaceAll(',', '.')) 
+          : null;
+
       final newProfessional = ProfessionalModel(
         id: widget.professionalToEdit?.id, // Mantém ID se existir
         username: _usernameCtrl.text,
@@ -73,8 +98,10 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
         cpf: _cpfCtrl.text,
         crefito: _crefitoCtrl.text,
         usersRoles: _selectedRoleId != null ? UserRoleModel(id: _selectedRoleId!, nomeCargo: '', ativo: false) : null,
-        percentualRepasse: double.tryParse(_percentualCtrl.text),
-        valorRepasseFixo: null,
+        percentualRepasse: double.tryParse(_percentualCtrl.text.replaceAll(',', '.')),
+        valorRepasseFixo: double.tryParse(_valorRepasseFixoCtrl.text.replaceAll(',', '.')),
+        percentualTaxaReposicao: percentualReposicao,
+        valorTaxaReposicaoFixo: valorReposicaoFixo,
       );
 
       final success = await widget.controller.saveProfessional(newProfessional);
@@ -222,7 +249,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                             _selectedRoleId = roles.firstWhere((r) => r.nomeCargo == 'Profissional', orElse: () => roles.first).id;
                           }
                           return DropdownButtonFormField<int?>(
-                            value: _selectedRoleId,
+                            initialValue: _selectedRoleId,
                             decoration: const InputDecoration(
                               labelText: 'Nível de Acesso (Role)',
                               border: OutlineInputBorder(),
@@ -296,11 +323,81 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                       const SizedBox(height: 10),
                       TextFormField(
                         controller: _percentualCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                         decoration: const InputDecoration(
                           labelText: '% Repasse',
                           border: OutlineInputBorder(),
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _valorRepasseFixoCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                        decoration: const InputDecoration(
+                          labelText: 'Valor Repasse Fixo (R\$)',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        "Taxas de Reposição (Substituição)",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<TaxaReposicaoTipo>(
+                              title: const Text('Porcentagem (%)', style: TextStyle(fontSize: 12)),
+                              value: TaxaReposicaoTipo.porcentagem,
+                              groupValue: _taxaReposicaoTipo,
+                              contentPadding: EdgeInsets.zero,
+                              onChanged: (val) {
+                                setState(() => _taxaReposicaoTipo = val!);
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<TaxaReposicaoTipo>(
+                              title: const Text('Valor Fixo (R\$)', style: TextStyle(fontSize: 12)),
+                              value: TaxaReposicaoTipo.fixo,
+                              groupValue: _taxaReposicaoTipo,
+                              contentPadding: EdgeInsets.zero,
+                              onChanged: (val) {
+                                setState(() => _taxaReposicaoTipo = val!);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (_taxaReposicaoTipo == TaxaReposicaoTipo.porcentagem)
+                        TextFormField(
+                          controller: _percentualTaxaReposicaoCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                          decoration: const InputDecoration(
+                            labelText: '% Taxa Reposição',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.percent),
+                          ),
+                        )
+                      else
+                        TextFormField(
+                          controller: _valorTaxaReposicaoFixoCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                          decoration: const InputDecoration(
+                            labelText: 'Valor Taxa Reposição Fixo (R\$)',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.attach_money),
+                          ),
+                        ),
 
                       const SizedBox(height: 30),
                       SizedBox(

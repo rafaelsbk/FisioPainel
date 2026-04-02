@@ -1,4 +1,5 @@
 import '../../domain/models/appointment_model.dart';
+import '../../domain/models/audit_fields.dart';
 
 class AppointmentDto {
   static AppointmentModel fromJson(Map<String, dynamic> json) {
@@ -12,6 +13,7 @@ class AppointmentDto {
       patientName: json['nome_paciente'],
       sessionProgress: json['progresso_sessao'],
       packageTotalValue: json['valor_total_pacote'],
+      audit: AuditFields.fromJson(json),
     );
   }
 
