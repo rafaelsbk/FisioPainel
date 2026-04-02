@@ -48,8 +48,23 @@ class IsProfessionalOwnerOrAdmin(permissions.BasePermission):
         
         if user.is_superuser or (role and role.visualizar_tudo):
             return True
+
+        # Permite visualização (GET) para todos os autenticados em modelos da clínica
+        view_name = view.__class__.__name__
+        if request.method in permissions.SAFE_METHODS:
+            if any(name in view_name for name in ['Paciente', 'Pacote', 'Agendamento']):
+                return True
         
-        # Regra universal: Se o usuário criou o registro, ele tem acesso
+        # Se o usuário tem permissão de gerenciar aquele tipo de objeto, ele pode editar/excluir qualquer um
+        if role:
+            if 'Paciente' in view_name and role.pode_gerenciar_pacientes:
+                return True
+            if 'Pacote' in view_name and role.pode_gerenciar_pacotes:
+                return True
+            if 'Agendamento' in view_name and role.pode_gerenciar_agendamentos:
+                return True
+        
+        # Regra universal: Se o usuário criou o registro, ele tem acesso total
         if hasattr(obj, 'criado_por') and obj.criado_por == user:
             return True
 

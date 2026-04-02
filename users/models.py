@@ -98,7 +98,8 @@ class Agendamento(AuditModel):
     status_repasse = models.CharField(max_length=50, choices=StatusRepasse.choices, default=StatusRepasse.PENDENTE)
 
     def __str__(self):
-        return f"Agendamento para {self.pacote.paciente.complete_name} com {self.profissional.username} em {self.data_hora}"
+        profissional_nome = self.profissional.username if self.profissional else "Sem Profissional"
+        return f"Agendamento para {self.pacote.paciente.complete_name} com {profissional_nome} em {self.data_hora}"
 
 class SolicitacaoAgendamento(AuditModel):
     class Status(models.TextChoices):

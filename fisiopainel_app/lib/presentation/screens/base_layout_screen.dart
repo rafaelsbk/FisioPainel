@@ -69,174 +69,82 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
+    // Cores Sugeridas: Verde Sálvia / Azul Água / Cinza Suave
+    final Color primaryColor = Colors.teal[700]!; 
+    final Color sidebarColor = Colors.white;
+    final Color sidebarHeaderColor = Colors.teal[800]!;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_pageTitle),
-        backgroundColor: Colors.white,
-        elevation: 1,
+        title: Text(
+          _pageTitle,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: primaryColor,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        leading: isMobile
+            ? Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              )
+            : null,
         actions: [
-          if (_username != null)
+          if (_username != null && !isMobile)
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: Center(
                 child: Text(
-                  "Você está logado como: ${_username!}",
-                  style: TextStyle(
-                    color: Colors.grey[700],
+                  "Logado: ${_username!}",
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ),
-          TextButton.icon(
-            icon: const Icon(Icons.exit_to_app, color: Colors.red),
-            label: const Text(
-              'SAIR',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
+          IconButton(
+            icon: const Icon(Icons.exit_to_app, color: Colors.white),
+            tooltip: 'SAIR',
             onPressed: _logout,
           ),
           const SizedBox(width: 8),
         ],
       ),
+      drawer: isMobile
+          ? Drawer(
+              backgroundColor: sidebarColor,
+              child: _buildSidebar(sidebarHeaderColor, primaryColor),
+            )
+          : null,
       body: Row(
         children: [
-          // --- SIDEBAR (Barra Lateral) ---
-          Container(
-            width: 250,
-            color: Colors.blueGrey[900],
-            child: Column(
-              children: [
-                Container(
-                  height: 60,
-                  alignment: Alignment.center,
-                  color: Colors.blueGrey[800],
-                  child: const Text(
-                    "SISTEMA",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                ListTile(
-                  leading: const Icon(Icons.dashboard, color: Colors.white70),
-                  title: const Text(
-                    'Início',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  selected: _selectedIndex == 0,
-                  selectedTileColor: Colors.blueGrey[700],
-                  onTap: () => _selectPage(0, "Visão Geral"),
-                ),
-
-                AnimatedBuilder(
-                  animation: _notifController,
-                  builder: (context, child) {
-                    return ListTile(
-                      leading: Badge(
-                        isLabelVisible: _notifController.unreadCount > 0,
-                        label: Text('${_notifController.unreadCount}'),
-                        child: const Icon(Icons.notifications, color: Colors.white70),
-                      ),
-                      title: Row(
-                        children: [
-                          const Text(
-                            'Notificações',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          if (_notifController.unreadCount > 0) ...[
-                            const SizedBox(width: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '${_notifController.unreadCount}',
-                                style: const TextStyle(color: Colors.white, fontSize: 10),
-                              ),
-                            )
-                          ]
-                        ],
-                      ),
-                      selected: _selectedIndex == 6,
-                      selectedTileColor: Colors.blueGrey[700],
-                      onTap: () {
-                         _selectPage(6, "Notificações");
-                         // Mark as read when opening the screen
-                         _notifController.markAsRead();
-                      },
-                    );
-                  },
-                ),
-
-                ListTile(
-                  leading: const Icon(Icons.calendar_today, color: Colors.white70),
-                  title: const Text(
-                    'Agenda',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  selected: _selectedIndex == 5,
-                  selectedTileColor: Colors.blueGrey[700],
-                  onTap: () => _selectPage(5, "Agenda de Atendimentos"),
-                ),
-
-                ListTile(
-                  leading: const Icon(Icons.analytics, color: Colors.white70),
-                  title: const Text(
-                    'Relatórios',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  selected: _selectedIndex == 7,
-                  selectedTileColor: Colors.blueGrey[700],
-                  onTap: () => _selectPage(7, "Relatórios"),
-                ),
-
-                // --- SUBMENU DE CADASTROS ---
-                Theme(
-                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                  child: ExpansionTile(
-                    leading: const Icon(
-                      Icons.folder_shared,
-                      color: Colors.white70,
-                    ),
-                    title: const Text(
-                      'Cadastros',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    iconColor: Colors.white,
-                    collapsedIconColor: Colors.white70,
-                    childrenPadding: const EdgeInsets.only(left: 20),
-                    children: [
-                      _buildMenuItem(1, "Pacientes", Icons.person),
-                      if (_userRole == 'ADMIN')
-                        _buildMenuItem(
-                          2,
-                          "Profissionais",
-                          Icons.medical_services,
-                        ),
-                      _buildMenuItem(3, "Pacotes", Icons.inventory_2),
-                      if (_userRole == 'ADMIN')
-                        _buildMenuItem(4, "Tipos de Atendimento", Icons.calendar_month),
-                      if (_userRole == 'ADMIN')
-                        _buildMenuItem(8, "Cargos e Permissões", Icons.admin_panel_settings),
-                    ],
-                  ),
-                ),
-              ],
+          // --- SIDEBAR (Barra Lateral) fixa apenas em telas grandes ---
+          if (!isMobile)
+            Container(
+              width: 250,
+              decoration: BoxDecoration(
+                color: sidebarColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                  )
+                ],
+              ),
+              child: _buildSidebar(sidebarHeaderColor, primaryColor),
             ),
-          ),
 
           // --- ÁREA DE CONTEÚDO (Dinâmica) ---
           Expanded(
             child: Container(
-              color: Colors.grey[100],
-              padding: const EdgeInsets.all(20),
+              color: Colors.grey[50],
+              padding: EdgeInsets.all(isMobile ? 8 : 24),
               child: _getContentWidget(),
             ),
           ),
@@ -245,13 +153,119 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
     );
   }
 
+  Widget _buildSidebar(Color headerColor, Color activeColor) {
+    final bool isDark = activeColor.computeLuminance() < 0.5;
+
+    return Column(
+      children: [
+        Container(
+          height: 100,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: headerColor,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [headerColor, headerColor.withOpacity(0.8)],
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.health_and_safety, color: Colors.white, size: 30),
+              const SizedBox(height: 8),
+              const Text(
+                "FISIOPAINEL",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: [
+              _buildSidebarTile(0, "Visão Geral", Icons.dashboard_outlined, activeColor),
+              _buildSidebarTile(6, "Notificações", Icons.notifications_none, activeColor, isNotification: true),
+              _buildSidebarTile(5, "Agenda", Icons.calendar_today_outlined, activeColor),
+              _buildSidebarTile(7, "Relatórios", Icons.analytics_outlined, activeColor),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Divider(),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Text(
+                  "GERENCIAMENTO",
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
+                ),
+              ),
+              
+              _buildSidebarTile(1, "Pacientes", Icons.people_outline, activeColor),
+              if (_userRole == 'ADMIN')
+                _buildSidebarTile(2, "Profissionais", Icons.medical_services_outlined, activeColor),
+              _buildSidebarTile(3, "Pacotes", Icons.inventory_2_outlined, activeColor),
+              if (_userRole == 'ADMIN')
+                _buildSidebarTile(4, "Tipos de Atendimento", Icons.category_outlined, activeColor),
+              if (_userRole == 'ADMIN')
+                _buildSidebarTile(8, "Cargos e Permissões", Icons.admin_panel_settings_outlined, activeColor),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSidebarTile(int index, String title, IconData icon, Color activeColor, {bool isNotification = false}) {
+    final bool isSelected = _selectedIndex == index;
+    
+    return ListTile(
+      leading: isNotification 
+        ? Badge(
+            isLabelVisible: _notifController.unreadCount > 0,
+            label: Text('${_notifController.unreadCount}'),
+            child: Icon(icon, color: isSelected ? activeColor : Colors.blueGrey[600]),
+          )
+        : Icon(icon, color: isSelected ? activeColor : Colors.blueGrey[600]),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? activeColor : Colors.blueGrey[800],
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      selected: isSelected,
+      selectedTileColor: activeColor.withOpacity(0.1),
+      onTap: () {
+        if (isNotification) _notifController.markAsRead();
+        _handleMenuClick(index, title);
+      },
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+    );
+  }
+
+  void _handleMenuClick(int index, String title) {
+    _selectPage(index, title);
+    if (MediaQuery.of(context).size.width < 900) {
+      Navigator.pop(context); // Fecha o drawer no mobile
+    }
+  }
+
   Widget _buildMenuItem(int index, String title, IconData icon) {
     return ListTile(
       leading: Icon(icon, size: 20, color: Colors.white70),
       title: Text(title, style: const TextStyle(color: Colors.white70)),
       selected: _selectedIndex == index,
       selectedTileColor: Colors.blueGrey[700],
-      onTap: () => _selectPage(index, title),
+      onTap: () => _handleMenuClick(index, title),
     );
   }
 

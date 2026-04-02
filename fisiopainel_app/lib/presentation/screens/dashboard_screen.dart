@@ -75,6 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
     final dateStr = DateFormat('dd/MM/yyyy').format(DateTime.now());
 
     return Column(
@@ -82,41 +83,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         // Welcome Header
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
+          width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.blue[800],
-            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.teal[700]!, Colors.teal[500]!],
+            ),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.teal.withOpacity(0.2),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               )
             ],
           ),
-          child: Row(
+          child: Wrap(
+            alignment: WrapAlignment.start,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 20,
+            runSpacing: 15,
             children: [
               CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, size: 35, color: Colors.blue[800]),
+                radius: 35,
+                backgroundColor: Colors.white.withOpacity(0.9),
+                child: Icon(Icons.person, size: 40, color: Colors.teal[800]),
               ),
-              const SizedBox(width: 20),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Olá, ${_userName ?? 'Profissional'}",
-                    style: const TextStyle(
+                    "Bem-vindo, ${_userName ?? 'Profissional'}",
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 22,
+                      fontSize: isMobile ? 20 : 24,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    "Hoje é $dateStr",
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    "$dateStr | FisioPainel Pilates",
+                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14),
                   ),
                 ],
               )

@@ -113,10 +113,11 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 600),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
@@ -124,108 +125,136 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                 Text(
-                  _isEditing ? 'Editar Pacote' : 'Novo Pacote',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 20),
-
-                // --- DROPDOWNS ---
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Text(
+                      _isEditing ? 'Editar Pacote' : 'Novo Pacote',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                const SizedBox(height: 15),
+
+                // --- DROPDOWNS RESPONSIVOS ---
+                LayoutBuilder(builder: (context, constraints) {
+                  final bool useColumn = constraints.maxWidth < 450;
+                  final content = [
                     Expanded(
+                      flex: useColumn ? 0 : 1,
                       child: DropdownButtonFormField<int>(
                         decoration: const InputDecoration(
                           labelText: 'Paciente *',
                           border: OutlineInputBorder(),
+                          isDense: true,
                         ),
+                        isExpanded: true,
                         value: _selectedPatientId,
                         items: widget.controller.patientsList
-                            .map(
-                              (p) => DropdownMenuItem(
-                                value: p.id,
-                                child: Text(p.completeName),
-                              ),
-                            )
+                            .map((p) => DropdownMenuItem(
+                                  value: p.id,
+                                  child: Text(p.completeName, overflow: TextOverflow.ellipsis),
+                                ))
                             .toList(),
-                        onChanged: (val) =>
-                            setState(() => _selectedPatientId = val),
+                        onChanged: (val) => setState(() => _selectedPatientId = val),
                         validator: (v) => v == null ? 'Obrigatório' : null,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: useColumn ? 0 : 10, height: useColumn ? 15 : 0),
                     Expanded(
+                      flex: useColumn ? 0 : 1,
                       child: DropdownButtonFormField<int>(
                         decoration: const InputDecoration(
                           labelText: 'Tipo Atendimento *',
                           border: OutlineInputBorder(),
+                          isDense: true,
                         ),
+                        isExpanded: true,
                         value: _selectedTypeId,
                         items: widget.controller.serviceTypesList
-                            .map(
-                              (t) => DropdownMenuItem(
-                                value: t.id,
-                                child: Text(t.name),
-                              ),
-                            )
+                            .map((t) => DropdownMenuItem(
+                                  value: t.id,
+                                  child: Text(t.name, overflow: TextOverflow.ellipsis),
+                                ))
                             .toList(),
-                        onChanged: (val) =>
-                            setState(() => _selectedTypeId = val),
+                        onChanged: (val) => setState(() => _selectedTypeId = val),
                         validator: (v) => v == null ? 'Obrigatório' : null,
                       ),
                     ),
-                  ],
-                ),
+                  ];
+
+                  return useColumn 
+                    ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: content) 
+                    : Row(children: content);
+                }),
                 const SizedBox(height: 15),
 
                 // --- VALORES E CÁLCULO ---
-                Row(
-                  children: [
+                LayoutBuilder(builder: (context, constraints) {
+                  final bool useColumn = constraints.maxWidth < 450;
+                  final content = [
                     Expanded(
+                      flex: useColumn ? 0 : 1,
                       child: TextFormField(
                         controller: _qtdCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           labelText: 'Qtd Sessões',
                           border: OutlineInputBorder(),
+                          isDense: true,
                         ),
                         onChanged: (_) => _calculateSessionValue(),
                         validator: (v) => v!.isEmpty ? 'Req' : null,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: useColumn ? 0 : 10, height: useColumn ? 15 : 0),
                     Expanded(
+                      flex: useColumn ? 0 : 1,
                       child: TextFormField(
                         controller: _totalCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
                           labelText: 'Valor Total (R\$)',
                           border: OutlineInputBorder(),
+                          isDense: true,
                         ),
                         onChanged: (_) => _calculateSessionValue(),
                         validator: (v) => v!.isEmpty ? 'Req' : null,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: useColumn ? 0 : 10, height: useColumn ? 15 : 0),
                     Expanded(
+                      flex: useColumn ? 0 : 1,
                       child: TextFormField(
                         controller: _sessionValueCtrl,
-                        readOnly: true, // Campo calculado
+                        readOnly: true,
                         decoration: const InputDecoration(
                           labelText: 'Valor/Sessão',
                           border: OutlineInputBorder(),
                           filled: true,
+                          isDense: true,
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ];
+
+                  return useColumn 
+                    ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: content) 
+                    : Row(children: content);
+                }),
                 const SizedBox(height: 15),
 
                 // --- DATA E STATUS ---
-                Row(
-                  children: [
+                LayoutBuilder(builder: (context, constraints) {
+                  final bool useColumn = constraints.maxWidth < 450;
+                  final content = [
                     Expanded(
+                      flex: useColumn ? 0 : 1,
                       child: TextFormField(
                         controller: _dateCtrl,
                         readOnly: true,
@@ -233,37 +262,35 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                           labelText: 'Data Pagamento',
                           border: OutlineInputBorder(),
                           suffixIcon: Icon(Icons.calendar_today),
+                          isDense: true,
                         ),
                         onTap: _pickDate,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: useColumn ? 0 : 10, height: useColumn ? 15 : 0),
                     Expanded(
+                      flex: useColumn ? 0 : 1,
                       child: DropdownButtonFormField<String>(
                         decoration: const InputDecoration(
                           labelText: 'Status',
                           border: OutlineInputBorder(),
+                          isDense: true,
                         ),
                         value: _status,
                         items: const [
-                          DropdownMenuItem(
-                            value: "ATIVO",
-                            child: Text("Ativo"),
-                          ),
-                          DropdownMenuItem(
-                            value: "FINALIZADO",
-                            child: Text("Finalizado"),
-                          ),
-                          DropdownMenuItem(
-                            value: "CANCELADO",
-                            child: Text("Cancelado"),
-                          ),
+                          DropdownMenuItem(value: "ATIVO", child: Text("Ativo")),
+                          DropdownMenuItem(value: "FINALIZADO", child: Text("Finalizado")),
+                          DropdownMenuItem(value: "CANCELADO", child: Text("Cancelado")),
                         ],
                         onChanged: (val) => setState(() => _status = val!),
                       ),
                     ),
-                  ],
-                ),
+                  ];
+
+                  return useColumn 
+                    ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: content) 
+                    : Row(children: content);
+                }),
 
                 const SizedBox(height: 30),
                 SizedBox(
@@ -272,12 +299,16 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                   child: ElevatedButton(
                     onPressed: _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[800],
+                      backgroundColor: Colors.teal[800],
                       foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     child: widget.controller.isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(_isEditing ? 'SALVAR ALTERAÇÕES' : 'CRIAR PACOTE'),
+                        : Text(
+                            _isEditing ? 'SALVAR ALTERAÇÕES' : 'CRIAR PACOTE',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
                   ),
                 ),
               ],

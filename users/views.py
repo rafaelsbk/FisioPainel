@@ -35,20 +35,12 @@ class PacienteViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsProfessionalOwnerOrAdmin]
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
-            return Paciente.objects.all()
-        return Paciente.objects.filter(
-            Q(criado_por=user) | Q(profissional_responsavel=user)
-        ).distinct()
+        # Todos os usuários veem todos os pacientes
+        return Paciente.objects.all()
 
     def perform_create(self, serializer):
         user = self.request.user
-        extra_data = {'criado_por': user}
-        # Se não pode visualizar tudo, ele é o responsável
-        if user.users_roles and not user.users_roles.visualizar_tudo:
-            extra_data['profissional_responsavel'] = user
-        serializer.save(**extra_data)
+        serializer.save(criado_por=user)
 
     def perform_update(self, serializer):
         serializer.save(editado_por=self.request.user)
@@ -80,16 +72,8 @@ class PacoteViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsProfessionalOwnerOrAdmin]
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
-            return Pacote.objects.all()
-        # Retorna pacotes criados pelo profissional, de pacientes sob sua responsabilidade,
-        # ou onde ele tenha pelo menos um agendamento vinculado.
-        return Pacote.objects.filter(
-            Q(criado_por=user) | 
-            Q(paciente__profissional_responsavel=user) |
-            Q(agendamentos__profissional=user)
-        ).distinct()
+        # Todos os profissionais veem todos os pacotes
+        return Pacote.objects.all()
 
     def perform_create(self, serializer):
         serializer.save(criado_por=self.request.user)
@@ -110,12 +94,8 @@ class AgendamentoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsProfessionalOwnerOrAdmin]
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
-            return Agendamento.objects.all()
-        return Agendamento.objects.filter(
-            Q(criado_por=user) | Q(profissional=user) | Q(pacote__paciente__profissional_responsavel=user)
-        ).distinct()
+        # Todos os profissionais veem todos os agendamentos
+        return Agendamento.objects.all()
 
     def perform_create(self, serializer):
         # Se um profissional foi enviado no JSON, usa ele. Caso contrário, usa o usuário logado.

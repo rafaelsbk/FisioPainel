@@ -250,7 +250,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
         onPressed: _openForm,
         label: const Text("Novo Pacote"),
         icon: const Icon(Icons.inventory),
-        backgroundColor: Colors.blue[800],
+        backgroundColor: Colors.teal[800],
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -270,23 +270,14 @@ class _PackagesScreenState extends State<PackagesScreen> {
                         child: ExpansionPanelList(
                           expansionCallback: (int index, bool isExpanded) {
                             final packageId = _controller.packages[index].id;
-                            if (packageId == null) {
-                              print('Erro: Pacote sem ID no índice $index');
-                              return;
-                            }
-                            
-                            // Log para depuração
-                            print('Clicou no pacote $packageId. Estado atual (map): ${_isExpandedMap[packageId]}');
+                            if (packageId == null) return;
 
                             setState(() {
-                              // Inverte o estado atual baseado no mapa
                               final currentlyExpanded = _isExpandedMap[packageId] ?? false;
                               _isExpandedMap[packageId] = !currentlyExpanded;
                             });
 
-                            // Se agora está expandido (valor novo no mapa é true) e não tem dados, busca.
                             if ((_isExpandedMap[packageId] == true) && _appointmentsMap[packageId] == null) {
-                               print('Buscando agendamentos para o pacote $packageId...');
                               _fetchAppointmentsForPackage(packageId);
                             }
                           },
@@ -306,93 +297,90 @@ class _PackagesScreenState extends State<PackagesScreen> {
                               isExpanded: _isExpandedMap[pkg.id] ?? false,
                               headerBuilder: (BuildContext context, bool isExpanded) {
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                  child: Row(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      // Coluna de Texto (Nome e Status)
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              '$patientName - $serviceName',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  'R\$ ${pkg.totalValue.toStringAsFixed(2)} - ${pkg.quantity} sessões',
-                                                  style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: pkg.status == "ATIVO" ? Colors.green[100] : Colors.grey[200],
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  child: Text(
-                                                    pkg.status,
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: pkg.status == "ATIVO" ? Colors.green[800] : Colors.black54,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            if (_isExpandedMap[pkg.id] ?? false) ...[
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'Utilizado: $appointmentsCount / ${pkg.quantity} sessões',
-                                                style: TextStyle(
-                                                  color: appointmentsCount >= pkg.quantity ? Colors.red : Colors.green[700],
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              SizedBox(
-                                                width: 200, // Limita largura da barra
-                                                child: LinearProgressIndicator(
-                                                  value: progress,
-                                                  backgroundColor: Colors.grey[200],
-                                                  color: appointmentsCount >= pkg.quantity ? Colors.red : Colors.green,
-                                                  minHeight: 4,
-                                                ),
-                                              ),
-                                            ]
-                                          ],
-                                        ),
+                                      Text(
+                                        '$patientName - $serviceName',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
                                       ),
-                                      // Coluna de Botões
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 12,
+                                        runSpacing: 8,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
                                         children: [
-                                          IconButton(
-                                            icon: Icon(Icons.playlist_add, color: Colors.indigo[700]),
-                                            tooltip: 'Planejar Sessões',
-                                            onPressed: () => _openBulkSchedule(pkg.id!, pkg.quantity),
+                                          Text(
+                                            'R\$ ${pkg.totalValue.toStringAsFixed(2)} - ${pkg.quantity} sessões',
+                                            style: TextStyle(color: Colors.grey[700], fontSize: 13),
                                           ),
-                                          IconButton(
-                                            icon: Icon(Icons.edit, color: Colors.blue[800]),
-                                            onPressed: () => _editPackage(pkg),
-                                          ),
-                                          IconButton(
-                                            icon: Icon(Icons.delete, color: Colors.red[800]),
-                                            onPressed: () => _deletePackage(pkg.id!),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: pkg.status == "ATIVO" ? Colors.green[100] : Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              pkg.status,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: pkg.status == "ATIVO" ? Colors.green[800] : Colors.black54,
+                                              ),
+                                            ),
                                           ),
                                         ],
                                       ),
+                                      if (_isExpandedMap[pkg.id] ?? false) ...[
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          'Utilizado: $appointmentsCount / ${pkg.quantity} sessões',
+                                          style: TextStyle(
+                                            color: appointmentsCount >= pkg.quantity ? Colors.red : Colors.teal[700],
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        LinearProgressIndicator(
+                                          value: progress,
+                                          backgroundColor: Colors.grey[200],
+                                          color: appointmentsCount >= pkg.quantity ? Colors.red : Colors.teal,
+                                          minHeight: 6,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                      ]
                                     ],
                                   ),
                                 );
                               },
                               body: Column(
                                 children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                      children: [
+                                        _buildActionButton(
+                                          icon: Icons.edit_outlined,
+                                          label: 'Editar',
+                                          color: Colors.blue[700]!,
+                                          onPressed: () => _editPackage(pkg),
+                                        ),
+                                        _buildActionButton(
+                                          icon: Icons.delete_outline,
+                                          label: 'Excluir',
+                                          color: Colors.red[700]!,
+                                          onPressed: () => _deletePackage(pkg.id!),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Divider(),
                                   if (_isLoadingAppointments[pkg.id] ?? false)
                                     const Padding(
                                       padding: EdgeInsets.all(16.0),
@@ -423,14 +411,15 @@ class _PackagesScreenState extends State<PackagesScreen> {
                                     ),
                                   const Divider(),
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 16.0),
+                                    padding: const EdgeInsets.all(16.0),
                                     child: ElevatedButton.icon(
                                       onPressed: () => _openBulkSchedule(pkg.id!, pkg.quantity),
                                       icon: const Icon(Icons.playlist_add),
                                       label: const Text('Planejar Sessões (Em Lote)'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.indigo[700],
+                                        backgroundColor: Colors.teal[800],
                                         foregroundColor: Colors.white,
+                                        minimumSize: const Size(double.infinity, 45),
                                       ),
                                     ),
                                   ),
@@ -442,6 +431,32 @@ class _PackagesScreenState extends State<PackagesScreen> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
       ),
     );
   }

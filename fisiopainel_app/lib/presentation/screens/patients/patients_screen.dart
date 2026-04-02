@@ -135,10 +135,12 @@ class _PatientsScreenState extends State<PatientsScreen> {
                           title: Text(
                             patient.completeName,
                             style: const TextStyle(fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
                           ),
                           // CORREÇÃO 3: Adicionar tratamento para campos nulos (email/cpf)
                           subtitle: Text(
                             "${patient.email ?? 'Sem email'}\nCPF: ${patient.cpf ?? 'Sem CPF'}",
+                            overflow: TextOverflow.ellipsis,
                           ),
                           isThreeLine: true,
                           trailing: IconButton(

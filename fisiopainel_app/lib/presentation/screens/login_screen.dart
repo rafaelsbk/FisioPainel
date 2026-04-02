@@ -32,98 +32,124 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(
-            maxWidth: 400,
-          ), // Limita largura na Web
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.lock_person, size: 80, color: Colors.blue),
-              const SizedBox(height: 30),
+      backgroundColor: Colors.grey[100],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Container(
+                constraints: const BoxConstraints(
+                  maxWidth: 400,
+                ),
+                padding: const EdgeInsets.all(32.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.health_and_safety, size: 60, color: Colors.teal),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "FISIOPAINEL",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
 
-              // Campo Usuário
-              TextField(
-                controller: _controller.userController,
-                decoration: const InputDecoration(
-                  labelText: 'Usuário',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+                    // Campo Usuário
+                    TextField(
+                      controller: _controller.userController,
+                      decoration: InputDecoration(
+                        labelText: 'Usuário',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.person, color: Colors.teal),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.teal[700]!, width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Campo Senha
+                    TextField(
+                      controller: _controller.passController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Senha',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock, color: Colors.teal),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.teal[700]!, width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Exibe erro se houver
+                    if (_controller.error.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          _controller.error,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+
+                    // Botão de Login
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal[700],
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: _controller.isLoading
+                            ? null
+                            : () async {
+                                final success = await _controller.login();
+                                if (success && context.mounted) {
+                                  Navigator.pushReplacementNamed(
+                                    context,
+                                    '/dashboard',
+                                  );
+                                }
+                              },
+                        child: _controller.isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
+                                'ENTRAR',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Campo Senha
-              TextField(
-                controller: _controller.passController,
-                obscureText: true, // Esconde a senha
-                decoration: const InputDecoration(
-                  labelText: 'Senha',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Exibe erro se houver
-              if (_controller.error.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: Text(
-                    _controller.error,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
-
-              // Botão de Login
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _controller.isLoading
-                      ? null
-                      : () async {
-                          print(
-                            '--- DEBUG: Botão clicado ---',
-                          ); // <--- ADICIONE
-
-                          final success = await _controller.login();
-
-                          print(
-                            '--- DEBUG: Resultado do login foi: $success ---',
-                          ); // <--- ADICIONE
-
-                          if (success) {
-                            if (context.mounted) {
-                              print(
-                                '--- DEBUG: Tentando navegar para /dashboard ---',
-                              ); // <--- ADICIONE
-                              Navigator.pushReplacementNamed(
-                                context,
-                                '/dashboard',
-                              );
-                            } else {
-                              print(
-                                '--- DEBUG: Contexto perdido (tela fechou antes) ---',
-                              );
-                            }
-                          } else {
-                            print(
-                              '--- DEBUG: Login retornou false, não navegou. ---',
-                            );
-                          }
-                        },
-                  child: _controller.isLoading
-                      ? const CircularProgressIndicator()
-                      : const Text('ENTRAR'),
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
