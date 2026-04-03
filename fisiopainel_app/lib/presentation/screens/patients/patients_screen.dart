@@ -14,11 +14,10 @@ class _PatientsScreenState extends State<PatientsScreen> {
   final PatientController _controller = PatientController();
   final TextEditingController _searchController = TextEditingController();
 
-  // Função para abrir o Modal
   Future<void> _openFormModal({PatientModel? patient}) async {
     final result = await showDialog<bool>(
       context: context,
-      barrierDismissible: false, // Obriga a clicar no X ou Salvar para fechar
+      barrierDismissible: false,
       builder: (context) {
         return PatientFormScreen(
           controller: _controller,
@@ -27,17 +26,12 @@ class _PatientsScreenState extends State<PatientsScreen> {
       },
     );
 
-    // Verifica se retornou true (sucesso)
     if (result == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            patient == null
-                ? "Paciente criado com sucesso!"
-                : "Paciente atualizado com sucesso!",
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating, // Fica mais bonito flutuando
+          content: Text(patient == null ? "Paciente criado com sucesso!" : "Paciente atualizado com sucesso!"),
+          backgroundColor: Colors.teal,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -47,113 +41,128 @@ class _PatientsScreenState extends State<PatientsScreen> {
   void initState() {
     super.initState();
     _controller.addListener(() {
-      setState(() {});
+      if (mounted) setState(() {});
     });
-    _controller.fetchPatients(); // Carrega os dados ao abrir
+    _controller.fetchPatients();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Usamos Scaffold aqui apenas para ter o FloatingActionButton facilmente
-    // O backgroundColor transparente permite ver o fundo cinza do BaseLayout
     return Scaffold(
       backgroundColor: Colors.transparent,
-
-      // BOTÃO FIXO DE CRIAR NOVO PACIENTE
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openFormModal(), // Chama sem parâmetros (criação)
+        onPressed: () => _openFormModal(),
         label: const Text("Novo Paciente"),
         icon: const Icon(Icons.add),
-        backgroundColor: Colors.blue[800],
-        foregroundColor: Colors.white,
+        elevation: 4,
       ),
-      body: Column(
-        children: [
-          // --- BARRA DE BUSCA ---
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            // --- BARRA DE BUSCA ---
+            TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Buscar por nome, CPF ou email...',
-                border: InputBorder.none,
-                prefixIcon: Icon(Icons.search),
-                suffixIcon: Icon(Icons.filter_list), // Ícone visual de filtro
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchController.text.isNotEmpty 
+                  ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () {
+                      _searchController.clear();
+                      _controller.filter("");
+                    })
+                  : const Icon(Icons.filter_list, size: 20),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              onChanged: _controller.filter,
+              onChanged: (val) {
+                _controller.filter(val);
+                setState(() {});
+              },
             ),
-          ),
 
-          const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-          // --- LISTA DE PACIENTES ---
-          Expanded(
-            child: _controller.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _controller.filteredPatients.isEmpty
-                ? const Center(child: Text("Nenhum paciente encontrado."))
-                : ListView.separated(
-                    itemCount: _controller.filteredPatients.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final patient = _controller.filteredPatients[index];
-                      return Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.blue[100],
-                            // CORREÇÃO 1: Usar completeName
-                            child: Text(
-                              patient.completeName.isNotEmpty
-                                  ? patient.completeName[0].toUpperCase()
-                                  : '?',
-                              style: TextStyle(color: Colors.blue[800]),
+            // --- LISTA DE PACIENTES ---
+            Expanded(
+              child: _controller.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _controller.filteredPatients.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.person_search_outlined, size: 64, color: Colors.grey[300]),
+                          const SizedBox(height: 16),
+                          Text("Nenhum paciente encontrado.", style: TextStyle(color: Colors.grey[500])),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _controller.filteredPatients.length,
+                      itemBuilder: (context, index) {
+                        final patient = _controller.filteredPatients[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            leading: CircleAvatar(
+                              radius: 24,
+                              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                              child: Text(
+                                patient.completeName.isNotEmpty ? patient.completeName[0].toUpperCase() : '?',
+                                style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            title: Text(
+                              patient.completeName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.email_outlined, size: 14, color: Colors.grey),
+                                      const SizedBox(width: 4),
+                                      Expanded(child: Text(patient.email ?? 'Sem email', style: const TextStyle(fontSize: 12))),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.badge_outlined, size: 14, color: Colors.grey),
+                                      const SizedBox(width: 4),
+                                      Text("CPF: ${patient.cpf ?? 'N/D'}", style: const TextStyle(fontSize: 12)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.edit_note, color: Colors.blueAccent),
+                              onPressed: () => _openFormModal(patient: patient),
                             ),
                           ),
-                          // CORREÇÃO 2: Usar completeName
-                          title: Text(
-                            patient.completeName,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          // CORREÇÃO 3: Adicionar tratamento para campos nulos (email/cpf)
-                          subtitle: Text(
-                            "${patient.email ?? 'Sem email'}\nCPF: ${patient.cpf ?? 'Sem CPF'}",
-                          ),
-                          isThreeLine: true,
-                          trailing: IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.orange),
-                            tooltip: 'Editar',
-                            onPressed: () => _openFormModal(
-                              patient: patient,
-                            ), // Passa o paciente
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

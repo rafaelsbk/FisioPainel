@@ -12,22 +12,20 @@ class ProfessionalsScreen extends StatefulWidget {
 
 class _ProfessionalsScreenState extends State<ProfessionalsScreen> {
   final ProfessionalController _controller = ProfessionalController();
-  final TextEditingController _searchController =
-      TextEditingController(); // Controlador da busca
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(() {
-      setState(() {});
+      if (mounted) setState(() {});
     });
     _controller.fetchProfessionals();
   }
 
   @override
   void dispose() {
-    _searchController.dispose(); // Limpeza de memória
-    _controller.dispose(); // Opcional, dependendo de como você gerencia injeção
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -42,16 +40,12 @@ class _ProfessionalsScreenState extends State<ProfessionalsScreen> {
     );
 
     if (result == true && mounted) {
-      // Limpa a busca ao salvar com sucesso para mostrar o novo item
       _searchController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            professional == null
-                ? "Cadastrado com sucesso!"
-                : "Atualizado com sucesso!",
-          ),
-          backgroundColor: Colors.green,
+          content: Text(professional == null ? "Cadastrado com sucesso!" : "Atualizado com sucesso!"),
+          backgroundColor: Colors.teal,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -64,221 +58,154 @@ class _ProfessionalsScreenState extends State<ProfessionalsScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openForm(),
         label: const Text("Novo Profissional"),
-        icon: const Icon(Icons.person_add),
-        backgroundColor: Colors.blue[800],
-        foregroundColor: Colors.white,
+        icon: const Icon(Icons.person_add_alt_1),
+        elevation: 4,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Gestão de Profissionais",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-
-          // --- BARRA DE PESQUISA (Igual à de Pacientes) ---
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            // --- BARRA DE PESQUISA ---
+            TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Buscar por nome, CPF, CREFITO ou usuário...',
-                border: InputBorder.none,
-                prefixIcon: Icon(Icons.search),
-                suffixIcon: Icon(Icons.filter_list),
+                prefixIcon: const Icon(Icons.search, size: 20),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              onChanged:
-                  _controller.filter, // Chama o filtro a cada letra digitada
+              onChanged: _controller.filter,
             ),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-          // --- LISTA FILTRADA ---
-          Expanded(
-            child: _controller.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _controller.filteredProfessionals.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.person_off,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _searchController.text.isEmpty
-                              ? "Nenhum profissional cadastrado."
-                              : "Nenhum resultado para '${_searchController.text}'",
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    itemCount: _controller.filteredProfessionals.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    // ... dentro do itemBuilder ...
-                    itemBuilder: (context, index) {
-                      final prof = _controller.filteredProfessionals[index];
+            // --- LISTA FILTRADA ---
+            Expanded(
+              child: _controller.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _controller.error.isNotEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
+                          const SizedBox(height: 16),
+                          Text("Erro ao carregar profissionais:", style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.bold)),
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(_controller.error, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
+                          ),
+                          ElevatedButton(onPressed: _controller.fetchProfessionals, child: const Text("TENTAR NOVAMENTE")),
+                        ],
+                      ),
+                    )
+                  : _controller.filteredProfessionals.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.person_off_outlined, size: 64, color: Colors.grey[300]),
+                          const SizedBox(height: 16),
+                          Text("Nenhum profissional encontrado.", style: TextStyle(color: Colors.grey[500])),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _controller.filteredProfessionals.length,
+                      itemBuilder: (context, index) {
+                        final prof = _controller.filteredProfessionals[index];
+                        final isInactive = !prof.isActive;
 
-                      // Define se o item parece "apagado"
-                      final isInactive = !prof.isActive;
-
-                      return Card(
-                        elevation: 2,
-                        // Se inativo, fundo cinza claro. Se ativo, branco.
-                        color: isInactive ? Colors.grey[200] : Colors.white,
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            // Se inativo, avatar cinza
-                            backgroundColor: isInactive
-                                ? Colors.grey
-                                : Colors.green[100],
-                            child: Text(
-                              prof.firstName.isNotEmpty
-                                  ? prof.firstName[0].toUpperCase()
-                                  : '?',
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: isInactive ? Colors.grey[50] : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            leading: CircleAvatar(
+                              radius: 24,
+                              backgroundColor: isInactive ? Colors.grey[200] : Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                              child: Text(
+                                prof.firstName.isNotEmpty ? prof.firstName[0].toUpperCase() : '?',
+                                style: TextStyle(
+                                  color: isInactive ? Colors.grey : Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              prof.fullName,
                               style: TextStyle(
-                                color: isInactive
-                                    ? Colors.white
-                                    : Colors.green[800],
+                                fontWeight: FontWeight.bold,
+                                decoration: isInactive ? TextDecoration.lineThrough : null,
+                                color: isInactive ? Colors.grey : Colors.black87,
                               ),
                             ),
-                          ),
-                          title: Text(
-                            prof.fullName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              // Se inativo, risca o nome
-                              decoration: isInactive
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                              color: isInactive ? Colors.grey : Colors.black,
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                isInactive ? "ACESSO BLOQUEADO" : "Usuário: ${prof.username} | CREFITO: ${prof.crefito ?? 'N/D'}",
+                                style: TextStyle(color: isInactive ? Colors.red[300] : Colors.grey[600], fontSize: 12),
+                              ),
                             ),
-                          ),
-                          subtitle: Text(
-                            isInactive
-                                ? "ACESSO BLOQUEADO"
-                                : "Usuário: ${prof.username}",
-                          ),
-
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Botão de Editar (Só mostra se estiver ativo, opcional)
-                              if (!isInactive)
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    color: Colors.orange,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!isInactive)
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_note, color: Colors.blueAccent),
+                                    onPressed: () => _openForm(professional: prof),
                                   ),
-                                  onPressed: () =>
-                                      _openForm(professional: prof),
+                                IconButton(
+                                  icon: Icon(
+                                    isInactive ? Icons.lock_open : Icons.lock_outline,
+                                    color: isInactive ? Colors.green : Colors.redAccent,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _showToggleStatusDialog(prof, isInactive),
                                 ),
-
-                              const SizedBox(width: 8),
-
-                              // --- BOTÃO DE SOFT DELETE / RESTAURAR CORRIGIDO ---
-                              IconButton(
-                                tooltip: isInactive
-                                    ? "Reativar Acesso"
-                                    : "Bloquear Acesso",
-                                icon: Icon(
-                                  isInactive
-                                      ? Icons.restore_from_trash
-                                      : Icons.delete_forever,
-                                  color: isInactive ? Colors.green : Colors.red,
-                                ),
-                                onPressed: () {
-                                  // 1. CAPTURA O MESSENGER AQUI FORA (Do contexto da Lista, que é seguro)
-                                  final messenger = ScaffoldMessenger.of(
-                                    context,
-                                  );
-
-                                  showDialog(
-                                    context: context,
-                                    builder: (dialogContext) => AlertDialog(
-                                      title: Text(
-                                        isInactive
-                                            ? 'Reativar Profissional?'
-                                            : 'Bloquear Profissional?',
-                                      ),
-                                      content: Text(
-                                        isInactive
-                                            ? 'O profissional poderá acessar o sistema novamente.'
-                                            : 'Tem certeza? O profissional perderá o acesso ao sistema imediatamente.',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(
-                                            dialogContext,
-                                          ), // Fecha usando o contexto do diálogo
-                                          child: const Text('Cancelar'),
-                                        ),
-
-                                        TextButton(
-                                          onPressed: () async {
-                                            // 2. Fecha o alerta imediatamente
-                                            Navigator.pop(dialogContext);
-
-                                            // 3. Executa a operação que vai reconstruir a tela
-                                            final success = await _controller
-                                                .toggleProfessionalStatus(prof);
-
-                                            // 4. Usa o 'messenger' capturado lá no passo 1
-                                            // Não usamos 'context' aqui, pois ele já "morreu"
-                                            if (success) {
-                                              messenger.showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    isInactive
-                                                        ? "Acesso restaurado!"
-                                                        : "Profissional bloqueado!",
-                                                  ),
-                                                  backgroundColor: isInactive
-                                                      ? Colors.green
-                                                      : Colors.red,
-                                                ),
-                                              );
-                                            }
-                                          },
-                                          child: Text(
-                                            isInactive
-                                                ? 'REATIVAR'
-                                                : 'BLOQUEAR',
-                                            style: TextStyle(
-                                              color: isInactive
-                                                  ? Colors.green
-                                                  : Colors.red,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showToggleStatusDialog(ProfessionalModel prof, bool isInactive) {
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isInactive ? 'Reativar Profissional?' : 'Bloquear Profissional?'),
+        content: Text(isInactive 
+          ? 'O profissional poderá acessar o sistema novamente.' 
+          : 'O profissional perderá o acesso ao sistema imediatamente.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCELAR')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await _controller.toggleProfessionalStatus(prof);
+              if (success) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(isInactive ? "Acesso restaurado!" : "Profissional bloqueado!"),
+                    backgroundColor: isInactive ? Colors.green : Colors.redAccent,
+                    behavior: SnackBarBehavior.floating,
                   ),
+                );
+              }
+            },
+            child: Text(isInactive ? 'REATIVAR' : 'BLOQUEAR', style: TextStyle(color: isInactive ? Colors.green : Colors.redAccent)),
           ),
         ],
       ),

@@ -21,13 +21,9 @@ class _PackagesScreenState extends State<PackagesScreen> {
   final PackageController _controller = PackageController();
   final AppointmentRepository _appointmentRepo = AppointmentRepository();
 
-  // Mapa para guardar a lista de agendamentos de cada pacote (cache)
   final Map<int, List<AppointmentModel>> _appointmentsMap = {};
-  // Mapa para controlar o estado de carregamento de cada pacote
   final Map<int, bool> _isLoadingAppointments = {};
-   // Estado para controlar qual painel está expandido
   final Map<int, bool> _isExpandedMap = {};
-
 
   @override
   void initState() {
@@ -48,20 +44,14 @@ class _PackagesScreenState extends State<PackagesScreen> {
     );
 
     if (result == true && mounted) {
-      final message = package == null
-          ? "Pacote criado com sucesso!"
-          : "Pacote atualizado com sucesso!";
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
+          content: Text(package == null ? "Pacote criado com sucesso!" : "Pacote atualizado com sucesso!"),
+          backgroundColor: Colors.teal,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
-  }
-
-  void _editPackage(PackageModel package) {
-    _openForm(package: package);
   }
 
   void _deletePackage(int packageId) async {
@@ -71,111 +61,50 @@ class _PackagesScreenState extends State<PackagesScreen> {
         title: const Text("Confirmar Exclusão"),
         content: const Text("Tem certeza que deseja excluir este pacote e todos os seus agendamentos?"),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancelar"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Excluir", style: TextStyle(color: Colors.red)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("EXCLUIR", style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
 
     if (confirm == true) {
       final success = await _controller.deletePackage(packageId);
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Pacote excluído com sucesso"),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_controller.error.isNotEmpty
-                  ? _controller.error
-                  : "Erro ao excluir pacote"),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+      if (mounted && success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Pacote excluído com sucesso"), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+        );
       }
     }
   }
 
-  // Busca os agendamentos de um pacote específico
   Future<void> _fetchAppointmentsForPackage(int packageId) async {
     if (!mounted) return;
-    setState(() {
-      _isLoadingAppointments[packageId] = true;
-    });
-
+    setState(() => _isLoadingAppointments[packageId] = true);
     try {
-      final appointments =
-          await _appointmentRepo.getAppointmentsForPackage(packageId);
-      if (mounted) {
-        setState(() {
-          _appointmentsMap[packageId] = appointments;
-        });
-      }
+      final appointments = await _appointmentRepo.getAppointmentsForPackage(packageId);
+      if (mounted) setState(() => _appointmentsMap[packageId] = appointments);
     } catch (e) {
-      print('Erro ao buscar agendamentos: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao buscar agendamentos: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingAppointments[packageId] = false;
-        });
-      }
+      if (mounted) setState(() => _isLoadingAppointments[packageId] = false);
     }
   }
 
   void _openBulkSchedule(int packageId, int maxSessions) async {
-    // Garante que temos a contagem atualizada
-    if (_appointmentsMap[packageId] == null) {
-      await _fetchAppointmentsForPackage(packageId);
-    }
-    
+    if (_appointmentsMap[packageId] == null) await _fetchAppointmentsForPackage(packageId);
     final currentAppointments = _appointmentsMap[packageId]?.length ?? 0;
     
     if (currentAppointments >= maxSessions) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Todas as sessões deste pacote já foram utilizadas."),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Todas as sessões já foram utilizadas."), backgroundColor: Colors.orange));
       return;
     }
 
-    if (!mounted) return;
-
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => BulkScheduleDialog(
-        packageId: packageId,
-        totalSessions: maxSessions,
-        existingSessionsCount: currentAppointments,
-      ),
+      builder: (_) => BulkScheduleDialog(packageId: packageId, totalSessions: maxSessions, existingSessionsCount: currentAppointments),
     );
 
-    if (result == true) {
-      // Recarrega os agendamentos do pacote
-      _fetchAppointmentsForPackage(packageId);
-    }
+    if (result == true) _fetchAppointmentsForPackage(packageId);
   }
 
   void _editAppointment(AppointmentModel appointment) async {
@@ -183,62 +112,22 @@ class _PackagesScreenState extends State<PackagesScreen> {
       context: context,
       builder: (_) => EditAppointmentDialog(appointment: appointment),
     );
-
-    if (result == true) {
-      _fetchAppointmentsForPackage(appointment.packageId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Agendamento atualizado com sucesso!"),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
+    if (result == true) _fetchAppointmentsForPackage(appointment.packageId);
   }
 
   Widget _buildStatusChip(String status) {
-    Color bgColor;
-    Color textColor;
-
+    Color color;
     switch (status.toUpperCase()) {
-      case 'REALIZADO':
-        bgColor = Colors.green[100]!;
-        textColor = Colors.green[900]!;
-        break;
-      case 'AGENDADO':
-        bgColor = Colors.blue[100]!;
-        textColor = Colors.blue[900]!;
-        break;
-      case 'FALTA':
-        bgColor = Colors.red[100]!;
-        textColor = Colors.red[900]!;
-        break;
-      case 'CANCELADO':
-        bgColor = Colors.grey[300]!;
-        textColor = Colors.grey[800]!;
-        break;
-      case 'ABERTO':
-        bgColor = Colors.orange[100]!;
-        textColor = Colors.orange[900]!;
-        break;
-      default:
-        bgColor = Colors.grey[200]!;
-        textColor = Colors.black87;
+      case 'REALIZADO': color = Colors.teal; break;
+      case 'AGENDADO': color = Colors.blue; break;
+      case 'FALTA': color = Colors.orange; break;
+      case 'CANCELADO': color = Colors.redAccent; break;
+      default: color = Colors.grey;
     }
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+      child: Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -247,201 +136,134 @@ class _PackagesScreenState extends State<PackagesScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openForm,
+        onPressed: () => _openForm(),
         label: const Text("Novo Pacote"),
-        icon: const Icon(Icons.inventory),
-        backgroundColor: Colors.blue[800],
-        foregroundColor: Colors.white,
+        icon: const Icon(Icons.inventory_2_outlined),
+        elevation: 4,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Gestão de Pacotes",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: _controller.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _controller.packages.isEmpty
-                    ? const Center(child: Text("Nenhum pacote registrado."))
-                    : SingleChildScrollView(
-                        child: ExpansionPanelList(
-                          expansionCallback: (int index, bool isExpanded) {
-                            final packageId = _controller.packages[index].id;
-                            if (packageId == null) {
-                              print('Erro: Pacote sem ID no índice $index');
-                              return;
-                            }
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            Expanded(
+              child: _controller.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _controller.packages.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[300]),
+                              const SizedBox(height: 16),
+                              Text("Nenhum pacote registrado.", style: TextStyle(color: Colors.grey[500])),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _controller.packages.length,
+                          itemBuilder: (context, index) {
+                            final pkg = _controller.packages[index];
+                            final isExpanded = _isExpandedMap[pkg.id] ?? false;
                             
-                            // Log para depuração
-                            print('Clicou no pacote $packageId. Estado atual (map): ${_isExpandedMap[packageId]}');
-
-                            setState(() {
-                              // Inverte o estado atual baseado no mapa
-                              final currentlyExpanded = _isExpandedMap[packageId] ?? false;
-                              _isExpandedMap[packageId] = !currentlyExpanded;
-                            });
-
-                            // Se agora está expandido (valor novo no mapa é true) e não tem dados, busca.
-                            if ((_isExpandedMap[packageId] == true) && _appointmentsMap[packageId] == null) {
-                               print('Buscando agendamentos para o pacote $packageId...');
-                              _fetchAppointmentsForPackage(packageId);
-                            }
-                          },
-                          children: _controller.packages.map<ExpansionPanel>((PackageModel pkg) {
-                             final patientName = _controller.patientsList
+                            final patientName = _controller.patientsList
                                 .firstWhere((p) => p.id == pkg.patientId, orElse: () => PatientModel(id: 0, completeName: 'Desconhecido'))
                                 .completeName;
-                             final serviceName = _controller.serviceTypesList
+                            final serviceName = _controller.serviceTypesList
                                 .firstWhere((s) => s.id == pkg.serviceTypeId, orElse: () => ServiceTypeModel(id: 0, name: 'Desconhecido'))
                                 .name;
 
-                             final appointmentsCount = _appointmentsMap[pkg.id]?.length ?? 0;
-                             final progress = pkg.quantity > 0 ? appointmentsCount / pkg.quantity : 0.0;
+                            final appointmentsCount = _appointmentsMap[pkg.id]?.length ?? 0;
+                            final progress = pkg.quantity > 0 ? appointmentsCount / pkg.quantity : 0.0;
 
-                            return ExpansionPanel(
-                              canTapOnHeader: true,
-                              isExpanded: _isExpandedMap[pkg.id] ?? false,
-                              headerBuilder: (BuildContext context, bool isExpanded) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                  child: Row(
-                                    children: [
-                                      // Coluna de Texto (Nome e Status)
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              '$patientName - $serviceName',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  'R\$ ${pkg.totalValue.toStringAsFixed(2)} - ${pkg.quantity} sessões',
-                                                  style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: pkg.status == "ATIVO" ? Colors.green[100] : Colors.grey[200],
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  child: Text(
-                                                    pkg.status,
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: pkg.status == "ATIVO" ? Colors.green[800] : Colors.black54,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            if (_isExpandedMap[pkg.id] ?? false) ...[
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'Utilizado: $appointmentsCount / ${pkg.quantity} sessões',
-                                                style: TextStyle(
-                                                  color: appointmentsCount >= pkg.quantity ? Colors.red : Colors.green[700],
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              SizedBox(
-                                                width: 200, // Limita largura da barra
-                                                child: LinearProgressIndicator(
-                                                  value: progress,
-                                                  backgroundColor: Colors.grey[200],
-                                                  color: appointmentsCount >= pkg.quantity ? Colors.red : Colors.green,
-                                                  minHeight: 4,
-                                                ),
-                                              ),
-                                            ]
-                                          ],
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                              ),
+                              child: Column(
+                                children: [
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.all(16),
+                                    onTap: () {
+                                      setState(() => _isExpandedMap[pkg.id!] = !isExpanded);
+                                      if (!isExpanded && _appointmentsMap[pkg.id] == null) _fetchAppointmentsForPackage(pkg.id!);
+                                    },
+                                    title: Text('$patientName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(serviceName, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                        const SizedBox(height: 4),
+                                        Text('R\$ ${pkg.totalValue.toStringAsFixed(2)} | ${pkg.quantity} sessões', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                        const SizedBox(height: 12),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(2),
+                                          child: LinearProgressIndicator(
+                                            value: progress,
+                                            backgroundColor: Colors.grey[100],
+                                            color: appointmentsCount >= pkg.quantity ? Colors.teal : Colors.blue,
+                                            minHeight: 4,
+                                          ),
                                         ),
+                                      ],
+                                    ),
+                                    trailing: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.grey),
+                                  ),
+                                  if (isExpanded) ...[
+                                    const Divider(height: 1),
+                                    if (_isLoadingAppointments[pkg.id] ?? false)
+                                      const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
+                                    else if (_appointmentsMap[pkg.id] == null || _appointmentsMap[pkg.id]!.isEmpty)
+                                      const Padding(padding: EdgeInsets.all(16), child: Text('Nenhum agendamento realizado.', style: TextStyle(fontSize: 12, color: Colors.grey)))
+                                    else
+                                      ListView.builder(
+                                        shrinkWrap: true,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        itemCount: _appointmentsMap[pkg.id]!.length,
+                                        itemBuilder: (context, i) {
+                                          final appt = _appointmentsMap[pkg.id]![i];
+                                          return ListTile(
+                                            dense: true,
+                                            leading: const Icon(Icons.calendar_today_outlined, size: 16),
+                                            title: Text(appt.dateTime != null ? DateFormat('dd/MM/yyyy HH:mm').format(appt.dateTime!) : 'Data inválida', style: const TextStyle(fontSize: 13)),
+                                            trailing: _buildStatusChip(appt.status),
+                                          );
+                                        },
                                       ),
-                                      // Coluna de Botões
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
+                                    Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
                                           IconButton(
-                                            icon: Icon(Icons.playlist_add, color: Colors.indigo[700]),
-                                            tooltip: 'Planejar Sessões',
+                                            icon: const Icon(Icons.playlist_add, color: Colors.blue),
                                             onPressed: () => _openBulkSchedule(pkg.id!, pkg.quantity),
+                                            tooltip: 'Agendar em Lote',
                                           ),
                                           IconButton(
-                                            icon: Icon(Icons.edit, color: Colors.blue[800]),
-                                            onPressed: () => _editPackage(pkg),
+                                            icon: const Icon(Icons.edit_outlined, color: Colors.orange),
+                                            onPressed: () => _openForm(package: pkg),
                                           ),
                                           IconButton(
-                                            icon: Icon(Icons.delete, color: Colors.red[800]),
+                                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                                             onPressed: () => _deletePackage(pkg.id!),
                                           ),
                                         ],
                                       ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              body: Column(
-                                children: [
-                                  if (_isLoadingAppointments[pkg.id] ?? false)
-                                    const Padding(
-                                      padding: EdgeInsets.all(16.0),
-                                      child: CircularProgressIndicator(),
                                     )
-                                  else if (_appointmentsMap[pkg.id] == null || _appointmentsMap[pkg.id]!.isEmpty)
-                                    const ListTile(title: Text('Nenhum agendamento realizado.'))
-                                  else
-                                    Column(
-                                      children: _appointmentsMap[pkg.id]!.map((appt) {
-                                        return ListTile(
-                                          leading: const Icon(Icons.calendar_today),
-                                          title: Text(appt.dateTime != null ? DateFormat('dd/MM/yyyy HH:mm').format(appt.dateTime!) : 'Data inválida'),
-                                          subtitle: Text('Profissional: ${appt.professionalName ?? 'Não definido'}'),
-                                          trailing: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              _buildStatusChip(appt.status),
-                                              const SizedBox(width: 8),
-                                              IconButton(
-                                                icon: const Icon(Icons.edit, color: Colors.blue),
-                                                onPressed: () => _editAppointment(appt),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  const Divider(),
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 16.0),
-                                    child: ElevatedButton.icon(
-                                      onPressed: () => _openBulkSchedule(pkg.id!, pkg.quantity),
-                                      icon: const Icon(Icons.playlist_add),
-                                      label: const Text('Planejar Sessões (Em Lote)'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.indigo[700],
-                                        foregroundColor: Colors.white,
-                                      ),
-                                    ),
-                                  ),
+                                  ]
                                 ],
                               ),
                             );
-                          }).toList(),
+                          },
                         ),
-                      ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

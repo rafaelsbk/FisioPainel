@@ -6,7 +6,9 @@ class AppointmentDto {
     return AppointmentModel(
       id: json['id'],
       packageId: json['pacote'],
-      dateTime: json['data_hora'] != null ? DateTime.parse(json['data_hora']) : null,
+      dateTime: (json['data_hora'] != null && json['data_hora'].toString().isNotEmpty) 
+          ? DateTime.parse(json['data_hora'].toString()) 
+          : null,
       status: json['status'],
       professionalId: json['profissional'],
       professionalName: json['nome_profissional'],
