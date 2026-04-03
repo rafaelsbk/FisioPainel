@@ -20,12 +20,14 @@ class AuthRepository {
   /// ---------------------------------------------------
   Future<TokenDto> login(String username, String password) async {
     final url = Uri.parse('$baseUrl/token/');
+    final body = jsonEncode({"username": username, "password": password});
+    print('--- DEBUG: Enviando login para $url: $body ---');
 
     try {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"username": username, "password": password}),
+        body: body,
       );
 
       if (response.statusCode == 200) {

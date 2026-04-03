@@ -67,12 +67,17 @@ class ProfessionalRepository {
 
         // FILTRAGEM
         // Removemos o .where() para mostrar TODOS (Admin e Profissionais)
-        final professionals = listToMap
-            .map((json) => ProfessionalDto.fromJson(json))
-            .toList();
+        try {
+          final professionals = listToMap
+              .map((json) => ProfessionalDto.fromJson(json))
+              .toList();
 
-        print('--- DEBUG GET: Total recuperado: ${professionals.length} ---');
-        return professionals;
+          print('--- DEBUG GET: Total recuperado: ${professionals.length} ---');
+          return professionals;
+        } catch (e) {
+          print('--- DEBUG GET: ERRO AO MAPEAR DTO: $e ---');
+          rethrow;
+        }
       } else {
         throw Exception('Erro ao carregar: ${response.statusCode}');
       }

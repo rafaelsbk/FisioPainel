@@ -13,11 +13,11 @@ class PackageDto {
       totalValue: double.parse(json['valor_total'].toString()),
       sessionValue: double.parse(json['valor_por_sessao'].toString()),
       status: json['status'],
-      paymentDate: json['data_pagamento'] != null 
-          ? DateTime.parse(json['data_pagamento']) 
+      paymentDate: (json['data_pagamento'] != null && json['data_pagamento'].toString().isNotEmpty) 
+          ? DateTime.parse(json['data_pagamento'].toString()) 
           : null,
-      startDate: json['data_inicio'] != null
-          ? DateTime.parse(json['data_inicio'])
+      startDate: (json['data_inicio'] != null && json['data_inicio'].toString().isNotEmpty)
+          ? DateTime.parse(json['data_inicio'].toString())
           : null,
       weekDays: json['dias_semana'],
       patientName: json['nome_paciente'],
