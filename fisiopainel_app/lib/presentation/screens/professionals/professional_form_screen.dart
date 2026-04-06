@@ -6,12 +6,12 @@ import '../../../domain/models/user_role_model.dart';
 
 class ProfessionalFormScreen extends StatefulWidget {
   final ProfessionalController controller;
-  final ProfessionalModel? professionalToEdit; // Novo parâmetro
+  final ProfessionalModel? professionalToEdit;
 
   const ProfessionalFormScreen({
     super.key,
     required this.controller,
-    this.professionalToEdit, // Opcional
+    this.professionalToEdit,
   });
 
   @override
@@ -19,6 +19,7 @@ class ProfessionalFormScreen extends StatefulWidget {
 }
 
 enum TaxaReposicaoTipo { porcentagem, fixo }
+enum RepasseTipo { porcentagem, fixo }
 
 class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -41,11 +42,11 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
   bool _obscureConfirmPassword = true;
 
   TaxaReposicaoTipo _taxaReposicaoTipo = TaxaReposicaoTipo.porcentagem;
+  RepasseTipo _repasseTipo = RepasseTipo.porcentagem;
 
   @override
   void initState() {
     super.initState();
-    // Se for edição, preenche os campos
     if (widget.professionalToEdit != null) {
       final p = widget.professionalToEdit!;
       _usernameCtrl.text = p.username;
@@ -61,12 +62,36 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
       _valorTaxaReposicaoFixoCtrl.text = p.valorTaxaReposicaoFixo?.toString() ?? '';
       _selectedRoleId = p.usersRoles?.id;
 
+      if (p.valorRepasseFixo != null && p.valorRepasseFixo! > 0) {
+        _repasseTipo = RepasseTipo.fixo;
+      } else {
+        _repasseTipo = RepasseTipo.porcentagem;
+      }
+
       if (p.valorTaxaReposicaoFixo != null && p.valorTaxaReposicaoFixo! > 0) {
         _taxaReposicaoTipo = TaxaReposicaoTipo.fixo;
       } else {
         _taxaReposicaoTipo = TaxaReposicaoTipo.porcentagem;
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmPasswordCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _cpfCtrl.dispose();
+    _crefitoCtrl.dispose();
+    _percentualCtrl.dispose();
+    _valorRepasseFixoCtrl.dispose();
+    _percentualTaxaReposicaoCtrl.dispose();
+    _valorTaxaReposicaoFixoCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _submit() async {
@@ -78,6 +103,13 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
         return;
       }
 
+      double? percentualRepasse = _repasseTipo == RepasseTipo.porcentagem 
+          ? double.tryParse(_percentualCtrl.text.replaceAll(',', '.')) 
+          : null;
+      double? valorRepasseFixo = _repasseTipo == RepasseTipo.fixo 
+          ? double.tryParse(_valorRepasseFixoCtrl.text.replaceAll(',', '.')) 
+          : null;
+
       double? percentualReposicao = _taxaReposicaoTipo == TaxaReposicaoTipo.porcentagem 
           ? double.tryParse(_percentualTaxaReposicaoCtrl.text.replaceAll(',', '.')) 
           : null;
@@ -86,11 +118,9 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
           : null;
 
       final newProfessional = ProfessionalModel(
-        id: widget.professionalToEdit?.id, // Mantém ID se existir
+        id: widget.professionalToEdit?.id,
         username: _usernameCtrl.text,
-        password: _passwordCtrl.text.isEmpty
-            ? null
-            : _passwordCtrl.text, // Senha opcional na edição
+        password: _passwordCtrl.text.isEmpty ? null : _passwordCtrl.text,
         firstName: _firstNameCtrl.text,
         lastName: _lastNameCtrl.text,
         email: _emailCtrl.text,
@@ -98,8 +128,8 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
         cpf: _cpfCtrl.text,
         crefito: _crefitoCtrl.text,
         usersRoles: _selectedRoleId != null ? UserRoleModel(id: _selectedRoleId!, nomeCargo: '', ativo: false) : null,
-        percentualRepasse: double.tryParse(_percentualCtrl.text.replaceAll(',', '.')),
-        valorRepasseFixo: double.tryParse(_valorRepasseFixoCtrl.text.replaceAll(',', '.')),
+        percentualRepasse: percentualRepasse,
+        valorRepasseFixo: valorRepasseFixo,
         percentualTaxaReposicao: percentualReposicao,
         valorTaxaReposicaoFixo: valorReposicaoFixo,
       );
@@ -117,12 +147,15 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
     final isEditing = widget.professionalToEdit != null;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 8,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 700),
+        constraints: const BoxConstraints(maxWidth: 800, minWidth: 400),
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -130,8 +163,9 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                 Text(
                   isEditing ? 'Editar Profissional' : 'Novo Profissional',
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
                 IconButton(
@@ -140,7 +174,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                 ),
               ],
             ),
-            const Divider(),
+            const Divider(height: 32),
             Flexible(
               child: SingleChildScrollView(
                 child: Form(
@@ -148,207 +182,167 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Seção Acesso
-                      const Text(
-                        "Dados de Acesso",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
+                      // SEÇÃO: DADOS DE ACESSO
+                      const _SectionHeader(title: 'Dados de Acesso', icon: Icons.lock_outline),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _usernameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Usuário *',
+                          prefixIcon: Icon(Icons.person_outline),
                         ),
+                        validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _usernameCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Usuário *',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordCtrl,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: isEditing ? 'Nova Senha (opcional)' : 'Senha *',
+                          prefixIcon: const Icon(Icons.key_outlined),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
-                          const SizedBox(width: 10),
-                          // Senha só é obrigatória se NÃO estiver editando
-                          Expanded(
-                            child: TextFormField(
-                              controller: _passwordCtrl,
-                              obscureText: _obscurePassword,
-                              decoration: InputDecoration(
-                                labelText: isEditing
-                                    ? 'Nova Senha (opcional)'
-                                    : 'Senha *',
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility
-                                        : Icons.visibility_off,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                ),
-                              ),
-                              validator: (v) =>
-                                  (!isEditing && (v == null || v.isEmpty))
-                                  ? 'Obrigatório'
-                                  : null,
-                            ),
-                          ),
-                        ],
+                        ),
+                        validator: (v) => (!isEditing && (v == null || v.isEmpty)) ? 'Obrigatório' : null,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _confirmPasswordCtrl,
                         obscureText: _obscureConfirmPassword,
                         decoration: InputDecoration(
-                          labelText: isEditing
-                              ? 'Confirmar Nova Senha'
-                              : 'Confirmar Senha *',
-                          border: const OutlineInputBorder(),
+                          labelText: isEditing ? 'Confirmar Nova Senha' : 'Confirmar Senha *',
+                          prefixIcon: const Icon(Icons.key_outlined),
                           suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureConfirmPassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscureConfirmPassword =
-                                    !_obscureConfirmPassword;
-                              });
-                            },
+                            icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                            onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                           ),
                         ),
                         validator: (v) {
-                          if (!isEditing && (v == null || v.isEmpty)) {
-                            return 'Obrigatório';
-                          }
-                          if (_passwordCtrl.text.isNotEmpty &&
-                              v != _passwordCtrl.text) {
-                            return 'As senhas não coincidem';
-                          }
+                          if (!isEditing && (v == null || v.isEmpty)) return 'Obrigatório';
+                          if (_passwordCtrl.text.isNotEmpty && v != _passwordCtrl.text) return 'As senhas não coincidem';
                           return null;
                         },
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       FutureBuilder<List<UserRoleModel>>(
                         future: widget.controller.getUserRoles(),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
-                          if (snapshot.hasError) {
-                            return const Text('Erro ao carregar os níveis de acesso');
+                            return const LinearProgressIndicator();
                           }
                           final roles = snapshot.data ?? [];
                           if (_selectedRoleId == null && roles.isNotEmpty) {
                             _selectedRoleId = roles.firstWhere((r) => r.nomeCargo == 'Profissional', orElse: () => roles.first).id;
                           }
                           return DropdownButtonFormField<int?>(
-                            initialValue: _selectedRoleId,
+                            value: _selectedRoleId,
                             decoration: const InputDecoration(
-                              labelText: 'Nível de Acesso (Role)',
-                              border: OutlineInputBorder(),
+                              labelText: 'Nível de Acesso *',
+                              prefixIcon: Icon(Icons.admin_panel_settings_outlined),
                             ),
                             items: roles.map((role) {
-                              return DropdownMenuItem<int?>(
-                                value: role.id,
-                                child: Text(role.nomeCargo),
-                              );
+                              return DropdownMenuItem<int?>(value: role.id, child: Text(role.nomeCargo));
                             }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                setState(() {
-                                  _selectedRoleId = val;
-                                });
-                              }
-                            },
+                            onChanged: (val) => setState(() => _selectedRoleId = val),
                           );
                         },
                       ),
-                      const SizedBox(height: 20),
 
-                      // Outros campos (resumido para brevidade - mantenha os do passo anterior)
+                      const SizedBox(height: 32),
+
+                      // SEÇÃO: DADOS PESSOAIS
+                      const _SectionHeader(title: 'Dados Pessoais', icon: Icons.person_outline),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _firstNameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Nome',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'Nome', prefixIcon: Icon(Icons.badge_outlined)),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _lastNameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Sobrenome',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'Sobrenome', prefixIcon: Icon(Icons.badge_outlined)),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _emailCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'E-mail', prefixIcon: Icon(Icons.email_outlined)),
+                        keyboardType: TextInputType.emailAddress,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _cpfCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'CPF',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'CPF', prefixIcon: Icon(Icons.credit_card_outlined)),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _phoneCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Telefone',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'Telefone', prefixIcon: Icon(Icons.phone_outlined)),
+                        keyboardType: TextInputType.phone,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _crefitoCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'CREFITO',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'CREFITO', prefixIcon: Icon(Icons.medical_services_outlined)),
                       ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: _percentualCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                        decoration: const InputDecoration(
-                          labelText: '% Repasse',
-                          border: OutlineInputBorder(),
-                        ),
+
+                      const SizedBox(height: 32),
+
+                      // SEÇÃO: REPASSE FINANCEIRO
+                      const _SectionHeader(title: 'Repasse Financeiro', icon: Icons.payments_outlined),
+                      const SizedBox(height: 16),
+                      const Text("Tipo de Repasse:", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<RepasseTipo>(
+                              title: const Text('Porcentagem (%)', style: TextStyle(fontSize: 12)),
+                              value: RepasseTipo.porcentagem,
+                              groupValue: _repasseTipo,
+                              contentPadding: EdgeInsets.zero,
+                              onChanged: (val) => setState(() => _repasseTipo = val!),
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<RepasseTipo>(
+                              title: const Text('Valor Fixo (R\$)', style: TextStyle(fontSize: 12)),
+                              value: RepasseTipo.fixo,
+                              groupValue: _repasseTipo,
+                              contentPadding: EdgeInsets.zero,
+                              onChanged: (val) => setState(() => _repasseTipo = val!),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: _valorRepasseFixoCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                        decoration: const InputDecoration(
-                          labelText: 'Valor Repasse Fixo (R\$)',
-                          border: OutlineInputBorder(),
+                      const SizedBox(height: 8),
+                      if (_repasseTipo == RepasseTipo.porcentagem)
+                        TextFormField(
+                          controller: _percentualCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                          decoration: const InputDecoration(
+                            labelText: '% Repasse',
+                            prefixIcon: Icon(Icons.percent),
+                          ),
+                        )
+                      else
+                        TextFormField(
+                          controller: _valorRepasseFixoCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                          decoration: const InputDecoration(
+                            labelText: 'Valor Repasse Fixo (R\$)',
+                            prefixIcon: Icon(Icons.attach_money),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        "Taxas de Reposição (Substituição)",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
+
+                      const SizedBox(height: 32),
+
+                      // SEÇÃO: TAXA DE REPOSIÇÃO
+                      const _SectionHeader(title: 'Taxa de Reposição', icon: Icons.swap_horiz_outlined),
+                      const SizedBox(height: 16),
+                      const Text("Tipo de Taxa (Substituição):", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey)),
                       Row(
                         children: [
                           Expanded(
@@ -357,9 +351,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                               value: TaxaReposicaoTipo.porcentagem,
                               groupValue: _taxaReposicaoTipo,
                               contentPadding: EdgeInsets.zero,
-                              onChanged: (val) {
-                                setState(() => _taxaReposicaoTipo = val!);
-                              },
+                              onChanged: (val) => setState(() => _taxaReposicaoTipo = val!),
                             ),
                           ),
                           Expanded(
@@ -368,14 +360,12 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                               value: TaxaReposicaoTipo.fixo,
                               groupValue: _taxaReposicaoTipo,
                               contentPadding: EdgeInsets.zero,
-                              onChanged: (val) {
-                                setState(() => _taxaReposicaoTipo = val!);
-                              },
+                              onChanged: (val) => setState(() => _taxaReposicaoTipo = val!),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       if (_taxaReposicaoTipo == TaxaReposicaoTipo.porcentagem)
                         TextFormField(
                           controller: _percentualTaxaReposicaoCtrl,
@@ -383,7 +373,6 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                           decoration: const InputDecoration(
                             labelText: '% Taxa Reposição',
-                            border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.percent),
                           ),
                         )
@@ -394,28 +383,33 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                           decoration: const InputDecoration(
                             labelText: 'Valor Taxa Reposição Fixo (R\$)',
-                            border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.attach_money),
                           ),
                         ),
 
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 40),
+
+                      // BOTÃO DE AÇÃO
                       SizedBox(
                         width: double.infinity,
-                        height: 50,
+                        height: 55,
                         child: ElevatedButton(
-                          onPressed: _submit,
+                          onPressed: widget.controller.isLoading ? null : _submit,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue[800],
+                            backgroundColor: const Color(0xFF3B82F6),
                             foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
                           ),
                           child: widget.controller.isLoading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
-                              : const Text('SALVAR'),
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : Text(
+                                  isEditing ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR PROFISSIONAL',
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
                         ),
                       ),
+                      const SizedBox(height: 8),
                     ],
                   ),
                 ),
@@ -424,6 +418,32 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+
+  const _SectionHeader({required this.title, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF64748B)),
+        const SizedBox(width: 8),
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF64748B),
+            letterSpacing: 1.1,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -56,11 +56,19 @@ class _PatientsScreenState extends State<PatientsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openFormModal(),
-        label: const Text("Novo Paciente"),
-        icon: const Icon(Icons.add),
-        elevation: 4,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: ElevatedButton.icon(
+          onPressed: () => _openFormModal(),
+          icon: const Icon(Icons.person_add_outlined),
+          label: const Text("ADICIONAR NOVO PACIENTE"),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -108,27 +116,50 @@ class _PatientsScreenState extends State<PatientsScreen> {
                       itemCount: _controller.filteredPatients.length,
                       itemBuilder: (context, index) {
                         final patient = _controller.filteredPatients[index];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: CircleAvatar(
-                              radius: 24,
-                              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                              child: Text(
-                                patient.completeName.isNotEmpty ? patient.completeName[0].toUpperCase() : '?',
-                                style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+                        return Opacity(
+                          opacity: patient.isActive ? 1.0 : 0.5,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              leading: CircleAvatar(
+                                radius: 24,
+                                backgroundColor: patient.isActive 
+                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.05)
+                                  : Colors.grey.withOpacity(0.2),
+                                child: Text(
+                                  patient.completeName.isNotEmpty ? patient.completeName[0].toUpperCase() : '?',
+                                  style: TextStyle(
+                                    color: patient.isActive ? Theme.of(context).colorScheme.primary : Colors.grey, 
+                                    fontWeight: FontWeight.bold
+                                  ),
+                                ),
                               ),
-                            ),
-                            title: Text(
-                              patient.completeName,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
+                              title: Row(
+                                children: [
+                                  Text(
+                                    patient.completeName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                  if (!patient.isActive)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 8.0),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[200],
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text('INATIVO', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Column(
@@ -157,8 +188,9 @@ class _PatientsScreenState extends State<PatientsScreen> {
                               onPressed: () => _openFormModal(patient: patient),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      );
+                    },
                     ),
             ),
           ],

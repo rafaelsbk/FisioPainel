@@ -35,7 +35,6 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   DateTime? _selectedDate;
   DateTime? _selectedStartDate;
   String _status = "ATIVO";
-  bool _pagamentoPendente = true;
   
   // 0=Segunda, 6=Domingo (alinhado com o weekday do Dart/Python)
   final List<int> _selectedWeekDays = [];
@@ -57,14 +56,12 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       
       if (widget.isRenewal) {
         _status = "ATIVO";
-        _pagamentoPendente = true;
         // Na renovação, não trazemos a data de pagamento anterior
       } else {
         _status = pkg.status;
         if (pkg.paymentDate != null) {
           _selectedDate = pkg.paymentDate;
           _dateCtrl.text = DateFormat('dd/MM/yyyy').format(pkg.paymentDate!);
-          _pagamentoPendente = false;
         }
       }
 
@@ -124,11 +121,19 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   }
 
   Future<void> _submit() async {
-    if (_formKey.currentState!.validate() &&
-        _selectedPatientId != null &&
-        _selectedTypeId != null &&
-        _selectedProfessionalId != null) {
-      
+    // Verificar se o paciente está ativo antes de submeter
+    final selectedPatient = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId);
+    if (!selectedPatient.isActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não é possível criar pacotes para pacientes desabilitados.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_formKey.currentState!.validate()) {
       final packageData = PackageModel(
         id: _isEditing ? widget.package!.id : null,
         patientId: _selectedPatientId!,
@@ -192,9 +197,10 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 600),
+        constraints: const BoxConstraints(maxWidth: 800, minWidth: 400),
         padding: const EdgeInsets.all(24),
         child: SingleChildScrollView(
           child: Form(
@@ -235,6 +241,36 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                   onChanged: (val) => setState(() => _selectedPatientId = val),
                   validator: (v) => v == null ? 'Selecione um paciente' : null,
                 ),
+                if (_selectedPatientId != null)
+                  Builder(builder: (context) {
+                    final p = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId);
+                    if (!p.isActive) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 12.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, color: Colors.red[800]),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Paciente desabilitado, consulte a Administração.',
+                                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }),
                 const SizedBox(height: 15),
                 
                 DropdownButtonFormField<int>(
@@ -411,19 +447,29 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 55,
-                  child: ElevatedButton(
-                    onPressed: widget.controller.isLoading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: widget.controller.isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            _isEditing ? 'SALVAR ALTERAÇÕES' : 'CRIAR PACOTE',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                  child: Builder(
+                    builder: (context) {
+                      bool isPatientInactive = false;
+                      if (_selectedPatientId != null) {
+                        final p = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId);
+                        isPatientInactive = !p.isActive;
+                      }
+
+                      return ElevatedButton(
+                        onPressed: (widget.controller.isLoading || isPatientInactive) ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF3B82F6),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: widget.controller.isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : Text(
+                                _isEditing ? 'SALVAR ALTERAÇÕES' : 'CRIAR PACOTE',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                      );
+                    }
                   ),
                 ),
                 const SizedBox(height: 20),

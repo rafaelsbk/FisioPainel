@@ -16,12 +16,16 @@ class FinanceiroViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def status_pagamento(self, request):
         status_filtro = request.query_params.get('pago') # 'true' ou 'false'
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
         
         queryset = Pacote.objects.all().select_related('paciente', 'profissional', 'tipo_atendimento')
         
         if status_filtro == 'true':
             # Totalmente pago (valor_pago >= valor_total)
             queryset = queryset.filter(valor_pago__gte=models.F('valor_total'))
+            if start_date and end_date:
+                queryset = queryset.filter(data_pagamento__date__range=[start_date, end_date])
         elif status_filtro == 'false':
             # Pendente (valor_pago < valor_total)
             queryset = queryset.filter(valor_pago__lt=models.F('valor_total'))
@@ -45,9 +49,12 @@ class FinanceiroViewSet(viewsets.ViewSet):
                 status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
             ).count()
             
+            # Sessões restantes para serem realizadas
+            restantes = total - realizadas
+            
             # Só considera renovação quando faltar 2 ou menos sessões
-            # (Ex: total 10, realizadas 8 -> faltam 2 -> entra na lista)
-            if total > 0 and (total - realizadas) <= 2:
+            # Se o pacote é pequeno (ex: 2 sessões), ele já entra na lista de renovação
+            if total > 0 and restantes <= 2:
                 serializer = PacoteSerializer(pacote)
                 data = serializer.data
                 data['sessoes_realizadas'] = realizadas
@@ -245,12 +252,19 @@ class PacoteViewSet(viewsets.ModelViewSet):
     def registrar_pagamento(self, request, pk=None):
         pacote = self.get_object()
         valor_recebido = request.data.get('valor_pago')
+        substituir = request.data.get('substituir', False)
         
         if valor_recebido is not None:
             try:
                 valor_decimal = Decimal(str(valor_recebido).replace(',', '.'))
-                # Soma ao valor que já estava pago anteriormente
-                pacote.valor_pago += valor_decimal
+                
+                if substituir:
+                    # Substitui o valor total pago
+                    pacote.valor_pago = valor_decimal
+                else:
+                    # Soma ao valor que já estava pago anteriormente
+                    pacote.valor_pago += valor_decimal
+                
                 pacote.data_pagamento = datetime.now()
                 pacote.save()
                 return Response({

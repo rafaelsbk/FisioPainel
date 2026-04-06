@@ -12,6 +12,7 @@ class PatientDto {
       phoneNumber: json['numero_telefone'], // Mapeamento importante
       cpf: json['cpf'],
       rg: json['rg'],
+      isActive: json['is_active'] ?? true,
       profissionalResponsavelId: json['profissional_responsavel'],
       audit: AuditFields.fromJson(json),
     );
@@ -26,6 +27,7 @@ class PatientDto {
       "numero_telefone": model.phoneNumber,
       "cpf": model.cpf,
       "rg": model.rg,
+      "is_active": model.isActive,
     };
     if (model.profissionalResponsavelId != null) {
       data["profissional_responsavel"] = model.profissionalResponsavelId;

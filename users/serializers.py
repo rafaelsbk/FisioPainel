@@ -134,7 +134,7 @@ class PacoteSerializer(serializers.ModelSerializer):
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
     nome_profissional = serializers.ReadOnlyField(source='profissional.username')
     nome_paciente = serializers.ReadOnlyField(source='paciente.complete_name')
-    nome_tipo_atendimento = serializers.ReadOnlyField(source='tipo_atendimento.name')
+    nome_tipo_atendimento = serializers.ReadOnlyField(source='tipo_atendimento.nome_atendimento')
 
     class Meta:
         model = Pacote
