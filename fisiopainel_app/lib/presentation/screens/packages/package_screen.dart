@@ -146,190 +146,168 @@ class _PackagesScreenState extends State<PackagesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Column(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: _controller.isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : _controller.packages.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[300]),
-                                    const SizedBox(height: 16),
-                                    Text("Nenhum pacote registrado.", style: TextStyle(color: Colors.grey[500])),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.only(bottom: 20),
-                                itemCount: _controller.packages.length,
-                                itemBuilder: (context, index) {
-                                  final pkg = _controller.packages[index];
-                                  final isExpanded = _isExpandedMap[pkg.id] ?? false;
-                                  
-                                  final patientName = _controller.patientsList
-                                      .firstWhere((p) => p.id == pkg.patientId, orElse: () => PatientModel(id: 0, completeName: 'Desconhecido'))
-                                      .completeName;
-                                  final serviceName = _controller.serviceTypesList
-                                      .firstWhere((s) => s.id == pkg.serviceTypeId, orElse: () => ServiceTypeModel(id: 0, name: 'Desconhecido'))
-                                      .name;
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: ElevatedButton.icon(
+          onPressed: () => _openForm(),
+          icon: const Icon(Icons.inventory_2_outlined),
+          label: const Text("ADICIONAR NOVO PACOTE"),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            Expanded(
+              child: _controller.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _controller.packages.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[300]),
+                              const SizedBox(height: 16),
+                              Text("Nenhum pacote registrado.", style: TextStyle(color: Colors.grey[500])),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          itemCount: _controller.packages.length,
+                          itemBuilder: (context, index) {
+                            final pkg = _controller.packages[index];
+                            final isExpanded = _isExpandedMap[pkg.id] ?? false;
+                            
+                            final patientName = _controller.patientsList
+                                .firstWhere((p) => p.id == pkg.patientId, orElse: () => PatientModel(id: 0, completeName: 'Desconhecido'))
+                                .completeName;
+                            final serviceName = _controller.serviceTypesList
+                                .firstWhere((s) => s.id == pkg.serviceTypeId, orElse: () => ServiceTypeModel(id: 0, name: 'Desconhecido'))
+                                .name;
 
-                                  final appointmentsCount = _appointmentsMap[pkg.id]?.length ?? 0;
-                                  final progress = pkg.quantity > 0 ? appointmentsCount / pkg.quantity : 0.0;
+                            final appointmentsCount = _appointmentsMap[pkg.id]?.length ?? 0;
+                            final progress = pkg.quantity > 0 ? appointmentsCount / pkg.quantity : 0.0;
 
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                                    ),
-                                    child: Column(
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                              ),
+                              child: Column(
+                                children: [
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.all(16),
+                                    onTap: () {
+                                      setState(() => _isExpandedMap[pkg.id!] = !isExpanded);
+                                      if (!isExpanded && _appointmentsMap[pkg.id] == null) _fetchAppointmentsForPackage(pkg.id!);
+                                    },
+                                    title: Text('$patientName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        ListTile(
-                                          contentPadding: const EdgeInsets.all(16),
-                                          onTap: () {
-                                            setState(() => _isExpandedMap[pkg.id!] = !isExpanded);
-                                            if (!isExpanded && _appointmentsMap[pkg.id] == null) _fetchAppointmentsForPackage(pkg.id!);
-                                          },
-                                          title: Text('$patientName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                          subtitle: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(serviceName, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 13)),
-                                              const SizedBox(height: 4),
-                                              Text('R\$ ${pkg.totalValue.toStringAsFixed(2)} | ${pkg.quantity} sessões', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                              const SizedBox(height: 12),
-                                              ClipRRect(
-                                                borderRadius: BorderRadius.circular(2),
-                                                child: LinearProgressIndicator(
-                                                  value: progress,
-                                                  backgroundColor: Colors.grey[100],
-                                                  color: appointmentsCount >= pkg.quantity ? Colors.teal : Colors.blue,
-                                                  minHeight: 4,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          trailing: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(isExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.grey),
-                                              const SizedBox(width: 8),
-                                              PopupMenuButton<String>(
-                                                onSelected: (value) {
-                                                  if (value == 'edit') _openForm(package: pkg);
-                                                  if (value == 'delete') _deletePackage(pkg.id!);
-                                                  if (value == 'bulk') _openBulkSchedule(pkg.id!, pkg.quantity);
-                                                },
-                                                itemBuilder: (context) => [
-                                                  const PopupMenuItem(
-                                                    value: 'bulk',
-                                                    child: ListTile(
-                                                      leading: Icon(Icons.playlist_add, color: Colors.blue),
-                                                      title: Text('Agendar Lote'),
-                                                      contentPadding: EdgeInsets.zero,
-                                                      dense: true,
-                                                    ),
-                                                  ),
-                                                  const PopupMenuItem(
-                                                    value: 'edit',
-                                                    child: ListTile(
-                                                      leading: Icon(Icons.edit_outlined, color: Colors.orange),
-                                                      title: Text('Editar Pacote'),
-                                                      contentPadding: EdgeInsets.zero,
-                                                      dense: true,
-                                                    ),
-                                                  ),
-                                                  const PopupMenuItem(
-                                                    value: 'delete',
-                                                    child: ListTile(
-                                                      leading: Icon(Icons.delete_outline, color: Colors.redAccent),
-                                                      title: Text('Excluir Pacote'),
-                                                      contentPadding: EdgeInsets.zero,
-                                                      dense: true,
-                                                    ),
-                                                  ),
-                                                ],
-                                                icon: const Icon(Icons.more_vert, color: Colors.grey),
-                                              ),
-                                            ],
+                                        Text(serviceName, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                        const SizedBox(height: 4),
+                                        Text('R\$ ${pkg.totalValue.toStringAsFixed(2)} | ${pkg.quantity} sessões', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                        const SizedBox(height: 12),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(2),
+                                          child: LinearProgressIndicator(
+                                            value: progress,
+                                            backgroundColor: Colors.grey[100],
+                                            color: appointmentsCount >= pkg.quantity ? Colors.teal : Colors.blue,
+                                            minHeight: 4,
                                           ),
                                         ),
-                                        if (isExpanded) ...[
-                                          const Divider(height: 1),
-                                          if (_isLoadingAppointments[pkg.id] ?? false)
-                                            const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
-                                          else if (_appointmentsMap[pkg.id] == null || _appointmentsMap[pkg.id]!.isEmpty)
-                                            const Padding(padding: EdgeInsets.all(16), child: Text('Nenhum agendamento realizado.', style: TextStyle(fontSize: 12, color: Colors.grey)))
-                                          else
-                                            ListView.builder(
-                                              shrinkWrap: true,
-                                              physics: const NeverScrollableScrollPhysics(),
-                                              itemCount: _appointmentsMap[pkg.id]!.length,
-                                              itemBuilder: (context, i) {
-                                                final appt = _appointmentsMap[pkg.id]![i];
-                                                return ListTile(
-                                                  dense: true,
-                                                  onTap: () => _editAppointment(appt),
-                                                  leading: const Icon(Icons.calendar_today_outlined, size: 16),
-                                                  title: Text(appt.dateTime != null ? DateFormat('dd/MM/yyyy HH:mm').format(appt.dateTime!) : 'Data inválida', style: const TextStyle(fontSize: 13)),
-                                                  trailing: _buildStatusChip(appt.status),
-                                                );
-                                              },
-                                            ),
-                                          const SizedBox(height: 16),
-                                        ]
                                       ],
                                     ),
-                                  );
-                                },
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(isExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.grey),
+                                        const SizedBox(width: 8),
+                                        PopupMenuButton<String>(
+                                          onSelected: (value) {
+                                            if (value == 'edit') _openForm(package: pkg);
+                                            if (value == 'delete') _deletePackage(pkg.id!);
+                                            if (value == 'bulk') _openBulkSchedule(pkg.id!, pkg.quantity);
+                                          },
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'bulk',
+                                              child: ListTile(
+                                                leading: Icon(Icons.playlist_add, color: Colors.blue),
+                                                title: Text('Agendar Lote'),
+                                                contentPadding: EdgeInsets.zero,
+                                                dense: true,
+                                              ),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'edit',
+                                              child: ListTile(
+                                                leading: Icon(Icons.edit_outlined, color: Colors.orange),
+                                                title: Text('Editar Pacote'),
+                                                contentPadding: EdgeInsets.zero,
+                                                dense: true,
+                                              ),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'delete',
+                                              child: ListTile(
+                                                leading: Icon(Icons.delete_outline, color: Colors.redAccent),
+                                                title: Text('Excluir Pacote'),
+                                                contentPadding: EdgeInsets.zero,
+                                                dense: true,
+                                              ),
+                                            ),
+                                          ],
+                                          icon: const Icon(Icons.more_vert, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isExpanded) ...[
+                                    const Divider(height: 1),
+                                    if (_isLoadingAppointments[pkg.id] ?? false)
+                                      const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
+                                    else if (_appointmentsMap[pkg.id] == null || _appointmentsMap[pkg.id]!.isEmpty)
+                                      const Padding(padding: EdgeInsets.all(16), child: Text('Nenhum agendamento realizado.', style: TextStyle(fontSize: 12, color: Colors.grey)))
+                                    else
+                                      ListView.builder(
+                                        shrinkWrap: true,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        itemCount: _appointmentsMap[pkg.id]!.length,
+                                        itemBuilder: (context, i) {
+                                          final appt = _appointmentsMap[pkg.id]![i];
+                                          return ListTile(
+                                            dense: true,
+                                            onTap: () => _editAppointment(appt),
+                                            leading: const Icon(Icons.calendar_today_outlined, size: 16),
+                                            title: Text(appt.dateTime != null ? DateFormat('dd/MM/yyyy HH:mm').format(appt.dateTime!) : 'Data inválida', style: const TextStyle(fontSize: 13)),
+                                            trailing: _buildStatusChip(appt.status),
+                                          );
+                                        },
+                                      ),
+                                    const SizedBox(height: 16),
+                                  ]
+                                ],
                               ),
-                  ),
-                ],
-              ),
+                            );
+                          },
+                        ),
             ),
-          ),
-          // Botão Fixo na Parte Inferior
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: ElevatedButton.icon(
-              onPressed: () => _openForm(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-              icon: const Icon(Icons.inventory_2_outlined),
-              label: const Text(
-                "NOVO PACOTE",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

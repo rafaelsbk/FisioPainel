@@ -81,21 +81,23 @@ class _ServiceTypeScreenState extends State<ServiceTypeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addType,
-        label: const Text("Novo Tipo"),
-        icon: const Icon(Icons.add),
-        backgroundColor: Colors.blue[800],
-        foregroundColor: Colors.white,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: ElevatedButton.icon(
+          onPressed: _addType,
+          icon: const Icon(Icons.add),
+          label: const Text("ADICIONAR NOVO TIPO"),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Tipos de Atendimento",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
           Expanded(
             child: _controller.isLoading
                 ? const Center(child: CircularProgressIndicator())

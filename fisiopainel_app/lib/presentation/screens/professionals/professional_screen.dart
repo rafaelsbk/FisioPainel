@@ -55,11 +55,19 @@ class _ProfessionalsScreenState extends State<ProfessionalsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        label: const Text("Novo Profissional"),
-        icon: const Icon(Icons.person_add_alt_1),
-        elevation: 4,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: ElevatedButton.icon(
+          onPressed: () => _openForm(),
+          icon: const Icon(Icons.person_add_alt_1),
+          label: const Text("ADICIONAR NOVO PROFISSIONAL"),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),

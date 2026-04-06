@@ -8,6 +8,7 @@ class PatientModel {
   final String? phoneNumber; // No Django é numero_telefone
   final String? cpf;
   final String? rg;
+  final bool isActive;
   final int? profissionalResponsavelId;
   final AuditFields? audit;
 
@@ -19,6 +20,7 @@ class PatientModel {
     this.phoneNumber,
     this.cpf,
     this.rg,
+    this.isActive = true,
     this.profissionalResponsavelId,
     this.audit,
   });
