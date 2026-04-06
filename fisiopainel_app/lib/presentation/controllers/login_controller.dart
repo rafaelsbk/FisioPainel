@@ -54,6 +54,14 @@ class LoginController extends ChangeNotifier {
       if (tokenDto.role != null) {
         await prefs.setString('user_role', tokenDto.role!);
       }
+
+      if (tokenDto.permissions != null) {
+        tokenDto.permissions!.forEach((key, value) async {
+          if (value is bool) {
+            await prefs.setBool('perm_$key', value);
+          }
+        });
+      }
       
       return true;
     } catch (e) {

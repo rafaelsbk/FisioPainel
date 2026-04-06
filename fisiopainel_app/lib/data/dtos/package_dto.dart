@@ -12,7 +12,9 @@ class PackageDto {
       quantity: json['quantidade_total'],
       totalValue: double.parse(json['valor_total'].toString()),
       sessionValue: double.parse(json['valor_por_sessao'].toString()),
-      status: json['status'],
+      paidValue: double.parse((json['valor_pago'] ?? 0).toString()),
+      status: json['status'] ?? 'ATIVO',
+
       paymentDate: (json['data_pagamento'] != null && json['data_pagamento'].toString().isNotEmpty) 
           ? DateTime.parse(json['data_pagamento'].toString()) 
           : null,
@@ -20,9 +22,10 @@ class PackageDto {
           ? DateTime.parse(json['data_inicio'].toString())
           : null,
       weekDays: json['dias_semana'],
+      renovatedFrom: json['renovado_de'],
       patientName: json['nome_paciente'],
       professionalName: json['nome_profissional'],
-      serviceName: json['nome_atendimento'],
+      serviceName: json['nome_tipo_atendimento'],
       audit: AuditFields.fromJson(json),
     );
   }
@@ -40,6 +43,7 @@ class PackageDto {
       "data_pagamento": model.paymentDate?.toIso8601String(),
       "data_inicio": model.startDate != null ? formatter.format(model.startDate!) : null,
       "dias_semana": model.weekDays,
+      "renovado_de": model.renovatedFrom,
     };
   }
 }

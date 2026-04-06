@@ -54,7 +54,6 @@ class PackageRepository {
   // 2. LISTAR TIPOS DE ATENDIMENTO (Para o Dropdown)
   Future<List<ServiceTypeModel>> getServiceTypes() async {
     var headers = await _getHeaders();
-    // Ajuste aqui se a URL for diferente de 'tipos-atendimento'
     var response = await http.get(
       Uri.parse('$apiBase/tipos-atendimento/'),
       headers: headers,
@@ -105,7 +104,7 @@ class PackageRepository {
     final body = jsonEncode(PackageDto.toJson(package));
     final url = Uri.parse('$apiBase/pacotes/${package.id}/');
 
-    var response = await http.put(
+    var response = await http.patch( // Usar PATCH para atualizações parciais
       url,
       headers: headers,
       body: body,
@@ -114,7 +113,7 @@ class PackageRepository {
     if (response.statusCode == 401) {
       await AuthRepository().tryAutoLogin();
       headers = await _getHeaders();
-      response = await http.put(
+      response = await http.patch(
         url,
         headers: headers,
         body: body,
@@ -122,7 +121,11 @@ class PackageRepository {
     }
     
     if (response.statusCode != 200) {
-      throw Exception('Erro ao atualizar: ${response.body}');
+      final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+      if (errorData is Map && errorData.containsKey('quantidade_total')) {
+        throw Exception(errorData['quantidade_total'][0]);
+      }
+      throw Exception('Erro ao atualizar o pacote');
     }
   }
 

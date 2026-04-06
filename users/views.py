@@ -2,12 +2,58 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.db import models
 from django.db.models import Q
 from decimal import Decimal
 from datetime import datetime, timedelta, time
 from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento, UserRole
 from .serializers import UserSerializer, PacienteSerializer, TipoAtendimentoSerializer, PacoteSerializer, AgendamentoSerializer, SolicitacaoAgendamentoSerializer, UserRoleSerializer
-from .permissions import IsAdminRole, IsProfessionalOwnerOrAdmin
+from .permissions import IsAdminRole, IsProfessionalOwnerOrAdmin, IsFinanceiroOrAdmin
+
+class FinanceiroViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, IsFinanceiroOrAdmin]
+
+    @action(detail=False, methods=['get'])
+    def status_pagamento(self, request):
+        status_filtro = request.query_params.get('pago') # 'true' ou 'false'
+        
+        queryset = Pacote.objects.all().select_related('paciente', 'profissional', 'tipo_atendimento')
+        
+        if status_filtro == 'true':
+            # Totalmente pago (valor_pago >= valor_total)
+            queryset = queryset.filter(valor_pago__gte=models.F('valor_total'))
+        elif status_filtro == 'false':
+            # Pendente (valor_pago < valor_total)
+            queryset = queryset.filter(valor_pago__lt=models.F('valor_total'))
+            
+        serializer = PacoteSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def renovacoes(self, request):
+        # Filtra pacotes ativos que ainda não foram renovados
+        pacotes_ativos = Pacote.objects.filter(
+            status=Pacote.Status.ATIVO,
+            renovacao__isnull=True
+        )
+        proximos_renovacao = []
+        
+        for pacote in pacotes_ativos:
+            total = pacote.quantidade_total
+            # Conta sessões que já aconteceram ou estão marcadas como falta
+            realizadas = pacote.agendamentos.filter(
+                status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
+            ).count()
+            
+            # Só considera renovação quando faltar 2 ou menos sessões
+            # (Ex: total 10, realizadas 8 -> faltam 2 -> entra na lista)
+            if total > 0 and (total - realizadas) <= 2:
+                serializer = PacoteSerializer(pacote)
+                data = serializer.data
+                data['sessoes_realizadas'] = realizadas
+                proximos_renovacao.append(data)
+                
+        return Response(proximos_renovacao)
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -98,9 +144,15 @@ class PacoteViewSet(viewsets.ModelViewSet):
         if not profissional and self.request.user.users_roles and self.request.user.users_roles.eh_profissional:
             profissional = self.request.user
             
+        # Se na criação já tem data de pagamento, considera o valor_pago como o valor_total
+        data_pagamento = serializer.validated_data.get('data_pagamento')
+        valor_total = serializer.validated_data.get('valor_total')
+        valor_pago = valor_total if data_pagamento else 0
+
         pacote = serializer.save(
             criado_por=self.request.user,
-            profissional=profissional
+            profissional=profissional,
+            valor_pago=valor_pago
         )
 
         # Lógica de Agendamento Automático
@@ -132,7 +184,84 @@ class PacoteViewSet(viewsets.ModelViewSet):
                 print(f"Erro no agendamento automático: {e}")
 
     def perform_update(self, serializer):
-        serializer.save(editado_por=self.request.user)
+        instance = self.get_object()
+        nova_quantidade = serializer.validated_data.get('quantidade_total')
+        
+        # 1. SALVA A INSTÂNCIA PRIMEIRO (Para os cálculos seguintes)
+        pacote = serializer.save(editado_por=self.request.user)
+
+        # Se a quantidade mudou, precisamos ajustar os agendamentos
+        if nova_quantidade is not None and nova_quantidade != instance.quantidade_total:
+            total_atual = pacote.agendamentos.count()
+            
+            # CASO A: A quantidade DIMINUIU
+            if nova_quantidade < instance.quantidade_total:
+                agendamentos_consumidos = pacote.agendamentos.filter(
+                    status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
+                ).count()
+                
+                limite_alvo = max(nova_quantidade, agendamentos_consumidos)
+                remover_count = total_atual - limite_alvo
+                
+                if remover_count > 0:
+                    ids_para_remover = pacote.agendamentos.filter(
+                        status__in=[Agendamento.Status.ABERTO, Agendamento.Status.AGENDADO]
+                    ).order_by('-data_hora', '-id').values_list('id', flat=True)[:remover_count]
+                    Agendamento.objects.filter(id__in=ids_para_remover).delete()
+            
+            # CASO B: A quantidade AUMENTOU
+            elif nova_quantidade > instance.quantidade_total:
+                aumento_count = nova_quantidade - total_atual
+                
+                if aumento_count > 0 and pacote.data_inicio and pacote.dias_semana:
+                    try:
+                        selected_days = [int(d) for d in pacote.dias_semana.split(',')]
+                        
+                        # Descobrir a partir de que data começar a criar as novas sessões
+                        ultimo_agendamento = pacote.agendamentos.order_by('-data_hora').first()
+                        if ultimo_agendamento:
+                            current_date = ultimo_agendamento.data_hora.date() + timedelta(days=1)
+                        else:
+                            current_date = pacote.data_inicio
+                        
+                        count = 0
+                        default_time = time(8, 0)
+                        
+                        while count < aumento_count:
+                            if current_date.weekday() in selected_days:
+                                Agendamento.objects.create(
+                                    pacote=pacote,
+                                    profissional=pacote.profissional,
+                                    data_hora=datetime.combine(current_date, default_time),
+                                    status=Agendamento.Status.AGENDADO,
+                                    criado_por=self.request.user
+                                )
+                                count += 1
+                            current_date += timedelta(days=1)
+                    except Exception as e:
+                        print(f"Erro ao criar novas sessões na atualização: {e}")
+
+    @action(detail=True, methods=['post'])
+    def registrar_pagamento(self, request, pk=None):
+        pacote = self.get_object()
+        valor_recebido = request.data.get('valor_pago')
+        
+        if valor_recebido is not None:
+            try:
+                valor_decimal = Decimal(str(valor_recebido).replace(',', '.'))
+                # Soma ao valor que já estava pago anteriormente
+                pacote.valor_pago += valor_decimal
+                pacote.data_pagamento = datetime.now()
+                pacote.save()
+                return Response({
+                    'status': 'Pagamento registrado com sucesso', 
+                    'valor_total_pago': str(pacote.valor_pago),
+                    'saldo_restante': str(pacote.valor_total - pacote.valor_pago)
+                })
+            except Exception as e:
+                return Response({'error': 'Valor de pagamento inválido'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({'error': 'Valor não informado'}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['get'])
     def agendamentos(self, request, pk=None):

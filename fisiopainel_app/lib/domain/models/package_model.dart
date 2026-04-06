@@ -8,18 +8,20 @@ class PackageModel {
   final int quantity; // 'quantidade_total'
   final double totalValue; // 'valor_total'
   final double sessionValue; // 'valor_por_sessao'
+  final double paidValue; // 'valor_pago'
   final String status; // 'status'
   final DateTime? paymentDate; // 'data_pagamento'
-  
-  // Scheduling fields
   final DateTime? startDate; // 'data_inicio'
   final String? weekDays; // 'dias_semana' (Ex: "0,2,4")
+  final int? renovatedFrom; // 'renovado_de'
 
   // Campos auxiliares para exibição na lista
   final String? patientName;
   final String? professionalName;
   final String? serviceName;
   final AuditFields? audit;
+
+  double get pendingValue => totalValue - paidValue;
 
   PackageModel({
     this.id,
@@ -29,10 +31,12 @@ class PackageModel {
     required this.quantity,
     required this.totalValue,
     required this.sessionValue,
+    this.paidValue = 0,
     this.status = 'ATIVO',
     this.paymentDate,
     this.startDate,
     this.weekDays,
+    this.renovatedFrom,
     this.patientName,
     this.professionalName,
     this.serviceName,
