@@ -6,8 +6,14 @@ import '../../controllers/package_controller.dart';
 class PackageFormScreen extends StatefulWidget {
   final PackageController controller;
   final PackageModel? package;
+  final bool isRenewal;
 
-  const PackageFormScreen({super.key, required this.controller, this.package});
+  const PackageFormScreen({
+    super.key, 
+    required this.controller, 
+    this.package,
+    this.isRenewal = false,
+  });
 
   @override
   State<PackageFormScreen> createState() => _PackageFormScreenState();
@@ -29,6 +35,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   DateTime? _selectedDate;
   DateTime? _selectedStartDate;
   String _status = "ATIVO";
+  bool _pagamentoPendente = true;
   
   // 0=Segunda, 6=Domingo (alinhado com o weekday do Dart/Python)
   final List<int> _selectedWeekDays = [];
@@ -37,9 +44,9 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   @override
   void initState() {
     super.initState();
-    _isEditing = widget.package != null;
+    _isEditing = widget.package != null && !widget.isRenewal;
 
-    if (_isEditing) {
+    if (widget.package != null) {
       final pkg = widget.package!;
       _selectedPatientId = pkg.patientId;
       _selectedProfessionalId = pkg.professionalId;
@@ -47,11 +54,20 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       _qtdCtrl.text = pkg.quantity.toString();
       _totalCtrl.text = pkg.totalValue.toStringAsFixed(2);
       _sessionValueCtrl.text = pkg.sessionValue.toStringAsFixed(2);
-      _status = pkg.status;
-      if (pkg.paymentDate != null) {
-        _selectedDate = pkg.paymentDate;
-        _dateCtrl.text = DateFormat('dd/MM/yyyy').format(pkg.paymentDate!);
+      
+      if (widget.isRenewal) {
+        _status = "ATIVO";
+        _pagamentoPendente = true;
+        // Na renovação, não trazemos a data de pagamento anterior
+      } else {
+        _status = pkg.status;
+        if (pkg.paymentDate != null) {
+          _selectedDate = pkg.paymentDate;
+          _dateCtrl.text = DateFormat('dd/MM/yyyy').format(pkg.paymentDate!);
+          _pagamentoPendente = false;
+        }
       }
+
       if (pkg.startDate != null) {
         _selectedStartDate = pkg.startDate;
         _startDateCtrl.text = DateFormat('dd/MM/yyyy').format(pkg.startDate!);
@@ -125,6 +141,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
         paymentDate: _selectedDate,
         startDate: _selectedStartDate,
         weekDays: _selectedWeekDays.isEmpty ? null : _selectedWeekDays.join(','),
+        renovatedFrom: widget.package?.id,
       );
 
       final success = _isEditing
@@ -146,6 +163,32 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
     }
   }
 
+  Widget _buildAlert(String message, MaterialColor color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color[200]!),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: color[800], size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: color[900], fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -160,178 +203,261 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _isEditing ? 'Editar Pacote' : 'Novo Pacote',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 20),
-
-                // --- DROPDOWNS ---
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: DropdownButtonFormField<int>(
-                        decoration: const InputDecoration(
-                          labelText: 'Paciente *',
-                          border: OutlineInputBorder(),
-                        ),
-                        value: _selectedPatientId,
-                        items: widget.controller.patientsList
-                            .map((p) => DropdownMenuItem(value: p.id, child: Text(p.completeName)))
-                            .toList(),
-                        onChanged: (val) => setState(() => _selectedPatientId = val),
-                        validator: (v) => v == null ? 'Obrigatório' : null,
-                      ),
+                    Text(
+                      _isEditing ? 'Editar Pacote' : 'Novo Pacote',
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DropdownButtonFormField<int>(
-                        decoration: const InputDecoration(
-                          labelText: 'Tipo Atendimento *',
-                          border: OutlineInputBorder(),
-                        ),
-                        value: _selectedTypeId,
-                        items: widget.controller.serviceTypesList
-                            .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
-                            .toList(),
-                        onChanged: (val) => setState(() => _selectedTypeId = val),
-                        validator: (v) => v == null ? 'Obrigatório' : null,
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
+                const Divider(),
+                const SizedBox(height: 20),
+
+                // --- SEÇÃO: INFORMAÇÕES BÁSICAS ---
+                const _SectionTitle(title: 'Informações do Pacote', icon: Icons.info_outline),
                 const SizedBox(height: 15),
+                
                 DropdownButtonFormField<int>(
                   decoration: const InputDecoration(
-                    labelText: 'Profissional Responsável (Dono do Pacote) *',
-                    border: OutlineInputBorder(),
+                    labelText: 'Paciente *',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  value: _selectedPatientId,
+                  items: widget.controller.patientsList
+                      .map((p) => DropdownMenuItem(value: p.id, child: Text(p.completeName)))
+                      .toList(),
+                  onChanged: (val) => setState(() => _selectedPatientId = val),
+                  validator: (v) => v == null ? 'Selecione um paciente' : null,
+                ),
+                const SizedBox(height: 15),
+                
+                DropdownButtonFormField<int>(
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo de Atendimento *',
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  value: _selectedTypeId,
+                  items: widget.controller.serviceTypesList
+                      .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
+                      .toList(),
+                  onChanged: (val) => setState(() => _selectedTypeId = val),
+                  validator: (v) => v == null ? 'Selecione o tipo' : null,
+                ),
+                const SizedBox(height: 15),
+                
+                DropdownButtonFormField<int>(
+                  decoration: const InputDecoration(
+                    labelText: 'Profissional Responsável *',
+                    prefixIcon: Icon(Icons.medical_services_outlined),
+                    helperText: 'Dono do pacote que receberá o repasse',
                   ),
                   value: _selectedProfessionalId,
                   items: widget.controller.professionalsList
                       .map((p) => DropdownMenuItem(value: p.id, child: Text(p.fullName)))
                       .toList(),
                   onChanged: (val) => setState(() => _selectedProfessionalId = val),
-                  validator: (v) => v == null ? 'Obrigatório' : null,
+                  validator: (v) => v == null ? 'Selecione o profissional' : null,
                 ),
+                const SizedBox(height: 25),
+
+                // --- SEÇÃO: VALORES ---
+                const _SectionTitle(title: 'Valores e Sessões', icon: Icons.payments_outlined),
                 const SizedBox(height: 15),
-
-                // --- VALORES E CÁLCULO ---
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _qtdCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Qtd Sessões', border: OutlineInputBorder()),
-                        onChanged: (_) => _calculateSessionValue(),
-                        validator: (v) => v!.isEmpty ? 'Req' : null,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _totalCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Valor Total (R\$)', border: OutlineInputBorder()),
-                        onChanged: (_) => _calculateSessionValue(),
-                        validator: (v) => v!.isEmpty ? 'Req' : null,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _sessionValueCtrl,
-                        readOnly: true,
-                        decoration: const InputDecoration(labelText: 'Valor/Sessão', border: OutlineInputBorder(), filled: true),
-                      ),
-                    ),
-                  ],
+                
+                TextFormField(
+                  controller: _qtdCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Quantidade de Sessões *',
+                    prefixIcon: Icon(Icons.numbers),
+                  ),
+                  onChanged: (_) {
+                    _calculateSessionValue();
+                    setState(() {}); // Atualiza para mostrar/esconder o aviso de pagamento
+                  },
+                  validator: (v) => (v == null || v.isEmpty) ? 'Informe a quantidade' : null,
                 ),
-                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _totalCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Valor Total do Pacote (R\$) *',
+                    prefixIcon: Icon(Icons.monetization_on_outlined),
+                  ),
+                  onChanged: (_) {
+                    _calculateSessionValue();
+                    setState(() {}); // Atualiza avisos de valor
+                  },
+                  validator: (v) => (v == null || v.isEmpty) ? 'Informe o valor total' : null,
+                ),
+                if (_isEditing && widget.package?.paymentDate != null)
+                  Builder(builder: (context) {
+                    final novoTotal = double.tryParse(_totalCtrl.text.replaceAll(',', '.')) ?? 0;
+                    final originalTotal = widget.package?.totalValue ?? 0;
 
-                // --- AGENDAMENTO AUTOMÁTICO ---
+                    if (novoTotal > originalTotal) {
+                      return _buildAlert(
+                        'Este pacote já possui um valor pago. O valor adicional aparecerá como pendente no financeiro.',
+                        Colors.amber,
+                      );
+                    } else if (novoTotal < originalTotal && novoTotal > 0) {
+                      return _buildAlert(
+                        'O novo valor é menor que o valor já pago. Isso gerará sobras financeiras para este paciente.',
+                        Colors.blue,
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }),
+                const SizedBox(height: 15),
+                
+                TextFormField(
+                  controller: _sessionValueCtrl,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    labelText: 'Valor por Sessão (Calculado)',
+                    prefixIcon: const Icon(Icons.calculate_outlined),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                  ),
+                ),
+                const SizedBox(height: 25),
+
+                // --- SEÇÃO: AGENDAMENTO AUTOMÁTICO ---
                 if (!_isEditing) ...[
-                  const Text("Agendamento Automático", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                  const SizedBox(height: 10),
+                  const _SectionTitle(title: 'Agendamento Automático', icon: Icons.auto_awesome),
+                  const SizedBox(height: 15),
                   TextFormField(
                     controller: _startDateCtrl,
                     readOnly: true,
                     decoration: const InputDecoration(
-                      labelText: 'Data Inicial (Início das Sessões) *',
-                      border: OutlineInputBorder(),
-                      suffixIcon: Icon(Icons.event_note),
+                      labelText: 'Data de Início das Sessões *',
+                      prefixIcon: Icon(Icons.calendar_month_outlined),
+                      suffixIcon: Icon(Icons.edit_calendar),
                     ),
                     onTap: _pickStartDate,
-                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Obrigatório' : null,
+                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe a data de início' : null,
                   ),
-                  const SizedBox(height: 10),
-                  const Text("Dias da Semana:", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 5),
-                  Wrap(
-                    spacing: 8,
-                    children: List.generate(7, (index) {
-                      return FilterChip(
-                        label: Text(_weekDayNames[index]),
-                        selected: _selectedWeekDays.contains(index),
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _selectedWeekDays.add(index);
-                            } else {
-                              _selectedWeekDays.remove(index);
-                            }
-                          });
-                        },
-                      );
-                    }),
+                  const SizedBox(height: 15),
+                  const Text(
+                    "Dias da Semana para Atendimento:",
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: List.generate(7, (index) {
+                        final isSelected = _selectedWeekDays.contains(index);
+                        return FilterChip(
+                          label: Text(_weekDayNames[index]),
+                          selected: isSelected,
+                          selectedColor: Colors.blue[100],
+                          checkmarkColor: Colors.blue[700],
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _selectedWeekDays.add(index);
+                              } else {
+                                _selectedWeekDays.remove(index);
+                              }
+                            });
+                          },
+                        );
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 25),
                 ],
 
-                // --- DATA PAGAMENTO E STATUS ---
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _dateCtrl,
-                        readOnly: true,
-                        decoration: const InputDecoration(labelText: 'Data Pagamento', border: OutlineInputBorder(), suffixIcon: Icon(Icons.calendar_today)),
-                        onTap: _pickDate,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
-                        value: _status,
-                        items: const [
-                          DropdownMenuItem(value: "ATIVO", child: Text("Ativo")),
-                          DropdownMenuItem(value: "FINALIZADO", child: Text("Finalizado")),
-                          DropdownMenuItem(value: "CANCELADO", child: Text("Cancelado")),
-                        ],
-                        onChanged: (val) => setState(() => _status = val!),
-                      ),
-                    ),
+                // --- SEÇÃO: STATUS E PAGAMENTO ---
+                const _SectionTitle(title: 'Status e Pagamento', icon: Icons.check_circle_outline),
+                const SizedBox(height: 15),
+                
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(
+                    labelText: 'Status do Pacote',
+                    prefixIcon: Icon(Icons.info_outline),
+                  ),
+                  value: _status,
+                  items: const [
+                    DropdownMenuItem(value: "ATIVO", child: Text("Ativo")),
+                    DropdownMenuItem(value: "FINALIZADO", child: Text("Finalizado")),
+                    DropdownMenuItem(value: "CANCELADO", child: Text("Cancelado")),
                   ],
+                  onChanged: (val) => setState(() => _status = val!),
+                ),
+                const SizedBox(height: 15),
+                
+                TextFormField(
+                  controller: _dateCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Data do Pagamento (se já pago)',
+                    prefixIcon: Icon(Icons.calendar_today_outlined),
+                    suffixIcon: Icon(Icons.event),
+                  ),
+                  onTap: _pickDate,
                 ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 40),
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 55,
                   child: ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[800], foregroundColor: Colors.white),
+                    onPressed: widget.controller.isLoading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3B82F6),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                     child: widget.controller.isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(_isEditing ? 'SALVAR ALTERAÇÕES' : 'CRIAR PACOTE'),
+                        : Text(
+                            _isEditing ? 'SALVAR ALTERAÇÕES' : 'CRIAR PACOTE',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                   ),
                 ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final IconData icon;
+
+  const _SectionTitle({required this.title, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.blue[700]),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue[700],
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
     );
   }
 }

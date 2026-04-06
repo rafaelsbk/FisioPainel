@@ -38,6 +38,7 @@ class UserRole(AuditModel):
     pode_gerenciar_pacotes = models.BooleanField(default=False)
     pode_gerenciar_agendamentos = models.BooleanField(default=False)
     pode_gerenciar_tipos_atendimento = models.BooleanField(default=False)
+    pode_gerenciar_financeiro = models.BooleanField(default=False)
     visualizar_tudo = models.BooleanField(default=False)
     eh_profissional = models.BooleanField(default=False)
 
@@ -75,8 +76,10 @@ class Pacote(AuditModel):
     quantidade_total = models.IntegerField()
     valor_total = models.DecimalField(max_digits=10, decimal_places=2)
     valor_por_sessao = models.DecimalField(max_digits=10, decimal_places=2)
+    valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.ATIVO)
     data_pagamento = models.DateTimeField(null=True, blank=True)
+    renovado_de = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='renovacao')
     
     # Scheduling fields
     data_inicio = models.DateField(null=True, blank=True)

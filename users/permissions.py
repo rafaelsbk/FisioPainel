@@ -8,6 +8,17 @@ class IsAdminRole(permissions.BasePermission):
             request.user.is_superuser or (request.user.users_roles and request.user.users_roles.pode_gerenciar_usuarios)
         )
 
+class IsFinanceiroOrAdmin(permissions.BasePermission):
+    """Permite acesso a quem tem permissão de financeiro ou é superuser/admin."""
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (
+            request.user.is_superuser or 
+            (request.user.users_roles and (
+                request.user.users_roles.pode_gerenciar_financeiro or 
+                request.user.users_roles.pode_gerenciar_usuarios
+            ))
+        )
+
 class IsProfessionalOwnerOrAdmin(permissions.BasePermission):
     """
     Regra: 

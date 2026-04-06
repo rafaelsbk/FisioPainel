@@ -11,6 +11,7 @@ import 'notifications_screen.dart';
 import 'dashboard_screen.dart';
 import 'reports/reports_screen.dart';
 import 'roles/user_role_screen.dart';
+import 'financeiro/financeiro_screen.dart';
 
 class BaseLayoutScreen extends StatefulWidget {
   const BaseLayoutScreen({super.key});
@@ -23,6 +24,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   int _selectedIndex = 0;
   String? _userRole;
   String? _username;
+  bool _canAccessFinance = false;
   final NotificationController _notifController = NotificationController();
 
   @override
@@ -37,6 +39,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
     setState(() {
       _userRole = prefs.getString('user_role')?.toUpperCase();
       _username = prefs.getString('username');
+      _canAccessFinance = prefs.getBool('perm_pode_gerenciar_financeiro') ?? false;
     });
   }
 
@@ -69,6 +72,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
       case 6: return "Notificações";
       case 7: return "Relatórios";
       case 8: return "Cargos e Permissões";
+      case 9: return "Financeiro";
       default: return "FisioPainel";
     }
   }
@@ -84,6 +88,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
       case 6: return const NotificationsScreen();
       case 7: return const ReportsScreen();
       case 8: return const UserRoleScreen();
+      case 9: return const FinanceiroScreen();
       default: return const Center(child: Text("Página não encontrada"));
     }
   }
@@ -95,6 +100,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
         final bool isMobile = constraints.maxWidth < 900;
 
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           appBar: AppBar(
             title: Text(_getPageTitle()),
             actions: [
@@ -170,7 +176,8 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
 
   Widget _buildDrawer() {
     return Drawer(
-      child: Column(
+      child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
             decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
@@ -189,6 +196,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
           _buildDrawerItem(5, "Agenda Geral", Icons.calendar_today),
           _buildDrawerItem(6, "Notificações", Icons.notifications),
           _buildDrawerItem(7, "Relatórios", Icons.analytics),
+          if (_userRole == 'ADMIN' || _canAccessFinance) _buildDrawerItem(9, "Financeiro", Icons.attach_money),
           const Divider(),
           const Padding(
             padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
@@ -240,6 +248,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
                 _buildSidebarItem(5, "Agenda Geral", Icons.calendar_month),
                 _buildSidebarItem(6, "Notificações", Icons.notifications),
                 _buildSidebarItem(7, "Relatórios", Icons.analytics),
+                if (_userRole == 'ADMIN' || _canAccessFinance) _buildSidebarItem(9, "Financeiro", Icons.attach_money),
                 const SizedBox(height: 20),
                 const Text("ADMINISTRAÇÃO", style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                 const SizedBox(height: 10),

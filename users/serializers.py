@@ -19,6 +19,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'pode_gerenciar_pacotes': role.pode_gerenciar_pacotes,
                 'pode_gerenciar_agendamentos': role.pode_gerenciar_agendamentos,
                 'pode_gerenciar_tipos_atendimento': role.pode_gerenciar_tipos_atendimento,
+                'pode_gerenciar_financeiro': role.pode_gerenciar_financeiro,
                 'visualizar_tudo': role.visualizar_tudo,
                 'eh_profissional': role.eh_profissional,
             }
@@ -36,6 +37,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'pode_gerenciar_pacotes': role.pode_gerenciar_pacotes,
                 'pode_gerenciar_agendamentos': role.pode_gerenciar_agendamentos,
                 'pode_gerenciar_tipos_atendimento': role.pode_gerenciar_tipos_atendimento,
+                'pode_gerenciar_financeiro': role.pode_gerenciar_financeiro,
                 'visualizar_tudo': role.visualizar_tudo,
                 'eh_profissional': role.eh_profissional,
             }
@@ -48,7 +50,8 @@ class UserRoleSerializer(serializers.ModelSerializer):
             'id', 'nome_cargo', 'ativo', 
             'pode_gerenciar_usuarios', 'pode_gerenciar_pacientes', 
             'pode_gerenciar_pacotes', 'pode_gerenciar_agendamentos', 
-            'pode_gerenciar_tipos_atendimento', 'visualizar_tudo', 'eh_profissional'
+            'pode_gerenciar_tipos_atendimento', 'pode_gerenciar_financeiro',
+            'visualizar_tudo', 'eh_profissional'
         ]
 
 class UserSerializer(serializers.ModelSerializer):
@@ -130,10 +133,34 @@ class PacoteSerializer(serializers.ModelSerializer):
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
     nome_profissional = serializers.ReadOnlyField(source='profissional.username')
+    nome_paciente = serializers.ReadOnlyField(source='paciente.complete_name')
+    nome_tipo_atendimento = serializers.ReadOnlyField(source='tipo_atendimento.name')
 
     class Meta:
         model = Pacote
-        fields = '__all__'
+        fields = [
+            'id', 'paciente', 'profissional', 'tipo_atendimento', 
+            'quantidade_total', 'valor_total', 'valor_por_sessao', 
+            'valor_pago', 'status', 'data_pagamento', 'data_inicio', 'dias_semana',
+            'renovado_de', 'criado_por_nome', 'editado_por_nome',
+            'nome_profissional', 'nome_paciente', 'nome_tipo_atendimento'
+        ]
+
+    def validate(self, data):
+        # Validação apenas na atualização (quando self.instance existe)
+        if self.instance:
+            nova_qtd = data.get('quantidade_total')
+            if nova_qtd is not None and nova_qtd < self.instance.quantidade_total:
+                # Conta sessões já consumidas (Realizadas ou Faltas)
+                realizados = self.instance.agendamentos.filter(
+                    status__in=['REALIZADO', 'FALTA']
+                ).count()
+                
+                if nova_qtd < realizados:
+                    raise serializers.ValidationError(
+                        {"quantidade_total": "Número de sessões escolhidas é menor que o número de sessões realizadas."}
+                    )
+        return data
 
 class AgendamentoSerializer(serializers.ModelSerializer):
     nome_profissional = serializers.SerializerMethodField()
