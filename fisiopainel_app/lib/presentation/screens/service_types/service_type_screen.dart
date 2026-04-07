@@ -101,11 +101,20 @@ class _ServiceTypeScreenState extends State<ServiceTypeScreen> {
           Expanded(
             child: _controller.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _controller.list.isEmpty
-                    ? const Center(child: Text("Nenhum tipo cadastrado."))
-                    : ListView.builder(
-                        itemCount: _controller.list.length,
-                        itemBuilder: (ctx, i) {
+                : RefreshIndicator(
+                    onRefresh: _controller.loadData,
+                    child: _controller.list.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                              const Center(child: Text("Nenhum tipo cadastrado.")),
+                            ],
+                          )
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: _controller.list.length,
+                            itemBuilder: (ctx, i) {
                           final item = _controller.list[i];
                           return Card(
                             child: ListTile(
@@ -118,6 +127,7 @@ class _ServiceTypeScreenState extends State<ServiceTypeScreen> {
                           );
                         },
                       ),
+                    ),
           ),
         ],
       ),

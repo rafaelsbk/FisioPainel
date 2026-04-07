@@ -79,9 +79,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final int completed = _todayAppointments.where((a) => a.status == 'REALIZADO').length;
     final int pending = _todayAppointments.where((a) => a.status == 'AGENDADO').length;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: _fetchTodayAppointments,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Welcome Header
@@ -224,6 +227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
         ],
       ),
+    ),
     );
   }
 
