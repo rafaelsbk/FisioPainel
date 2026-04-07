@@ -169,21 +169,30 @@ class _PackagesScreenState extends State<PackagesScreen> {
             Expanded(
               child: _controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _controller.packages.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[300]),
-                              const SizedBox(height: 16),
-                              Text("Nenhum pacote registrado.", style: TextStyle(color: Colors.grey[500])),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 20),
-                          itemCount: _controller.packages.length,
-                          itemBuilder: (context, index) {
+                  : RefreshIndicator(
+                      onRefresh: _controller.loadData,
+                      child: _controller.packages.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                                Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[300]),
+                                      const SizedBox(height: 16),
+                                      Text("Nenhum pacote registrado.", style: TextStyle(color: Colors.grey[500])),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.only(bottom: 20),
+                              itemCount: _controller.packages.length,
+                              itemBuilder: (context, index) {
                             final pkg = _controller.packages[index];
                             final isExpanded = _isExpandedMap[pkg.id] ?? false;
                             
@@ -305,6 +314,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                             );
                           },
                         ),
+                    ),
             ),
           ],
         ),

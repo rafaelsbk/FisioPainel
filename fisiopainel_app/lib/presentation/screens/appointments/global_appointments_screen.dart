@@ -97,9 +97,12 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
           _buildHeader(),
           const SizedBox(height: 10),
           Expanded(
-            child: _controller.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _isListView ? _buildListView() : _buildCalendarView(),
+            child: RefreshIndicator(
+              onRefresh: _controller.loadAppointments,
+              child: _controller.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _isListView ? _buildListView() : _buildCalendarView(),
+            ),
           ),
         ],
       ),
@@ -310,9 +313,18 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
 
   Widget _buildListView() {
     final list = _controller.appointments;
-    if (list.isEmpty) return const Center(child: Text("Nenhum agendamento encontrado."));
+    if (list.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+          const Center(child: Text("Nenhum agendamento encontrado.")),
+        ],
+      );
+    }
 
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(8),
       itemCount: list.length,
       itemBuilder: (ctx, i) {

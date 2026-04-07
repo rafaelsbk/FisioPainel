@@ -91,95 +91,111 @@ class _ProfessionalsScreenState extends State<ProfessionalsScreen> {
             Expanded(
               child: _controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _controller.error.isNotEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
-                          const SizedBox(height: 16),
-                          Text("Erro ao carregar profissionais:", style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.bold)),
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(_controller.error, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
-                          ),
-                          ElevatedButton(onPressed: _controller.fetchProfessionals, child: const Text("TENTAR NOVAMENTE")),
-                        ],
-                      ),
-                    )
-                  : _controller.filteredProfessionals.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.person_off_outlined, size: 64, color: Colors.grey[300]),
-                          const SizedBox(height: 16),
-                          Text("Nenhum profissional encontrado.", style: TextStyle(color: Colors.grey[500])),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _controller.filteredProfessionals.length,
-                      itemBuilder: (context, index) {
-                        final prof = _controller.filteredProfessionals[index];
-                        final isInactive = !prof.isActive;
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: isInactive ? Colors.grey[50] : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: CircleAvatar(
-                              radius: 24,
-                              backgroundColor: isInactive ? Colors.grey[200] : Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                              child: Text(
-                                prof.firstName.isNotEmpty ? prof.firstName[0].toUpperCase() : '?',
-                                style: TextStyle(
-                                  color: isInactive ? Colors.grey : Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.bold
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              prof.fullName,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                decoration: isInactive ? TextDecoration.lineThrough : null,
-                                color: isInactive ? Colors.grey : Colors.black87,
-                              ),
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                isInactive ? "ACESSO BLOQUEADO" : "Usuário: ${prof.username} | CREFITO: ${prof.crefito ?? 'N/D'}",
-                                style: TextStyle(color: isInactive ? Colors.red[300] : Colors.grey[600], fontSize: 12),
-                              ),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
+                  : RefreshIndicator(
+                      onRefresh: _controller.fetchProfessionals,
+                      child: _controller.error.isNotEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
                               children: [
-                                if (!isInactive)
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_note, color: Colors.blueAccent),
-                                    onPressed: () => _openForm(professional: prof),
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                                Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
+                                      const SizedBox(height: 16),
+                                      Text("Erro ao carregar profissionais:", style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.bold)),
+                                      Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Text(_controller.error, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
+                                      ),
+                                      ElevatedButton(onPressed: _controller.fetchProfessionals, child: const Text("TENTAR NOVAMENTE")),
+                                    ],
                                   ),
-                                IconButton(
-                                  icon: Icon(
-                                    isInactive ? Icons.lock_open : Icons.lock_outline,
-                                    color: isInactive ? Colors.green : Colors.redAccent,
-                                    size: 20,
-                                  ),
-                                  onPressed: () => _showToggleStatusDialog(prof, isInactive),
                                 ),
                               ],
-                            ),
-                          ),
-                        );
-                      },
+                            )
+                          : _controller.filteredProfessionals.isEmpty
+                              ? ListView(
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  children: [
+                                    SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                                    Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.person_off_outlined, size: 64, color: Colors.grey[300]),
+                                          const SizedBox(height: 16),
+                                          Text("Nenhum profissional encontrado.", style: TextStyle(color: Colors.grey[500])),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : ListView.builder(
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  itemCount: _controller.filteredProfessionals.length,
+                                  itemBuilder: (context, index) {
+                                    final prof = _controller.filteredProfessionals[index];
+                                    final isInactive = !prof.isActive;
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      decoration: BoxDecoration(
+                                        color: isInactive ? Colors.grey[50] : Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                                      ),
+                                      child: ListTile(
+                                        contentPadding: const EdgeInsets.all(16),
+                                        leading: CircleAvatar(
+                                          radius: 24,
+                                          backgroundColor: isInactive ? Colors.grey[200] : Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                                          child: Text(
+                                            prof.firstName.isNotEmpty ? prof.firstName[0].toUpperCase() : '?',
+                                            style: TextStyle(
+                                              color: isInactive ? Colors.grey : Theme.of(context).colorScheme.primary,
+                                              fontWeight: FontWeight.bold
+                                            ),
+                                          ),
+                                        ),
+                                        title: Text(
+                                          prof.fullName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            decoration: isInactive ? TextDecoration.lineThrough : null,
+                                            color: isInactive ? Colors.grey : Colors.black87,
+                                          ),
+                                        ),
+                                        subtitle: Padding(
+                                          padding: const EdgeInsets.only(top: 4.0),
+                                          child: Text(
+                                            isInactive ? "ACESSO BLOQUEADO" : "Usuário: ${prof.username} | CREFITO: ${prof.crefito ?? 'N/D'}",
+                                            style: TextStyle(color: isInactive ? Colors.red[300] : Colors.grey[600], fontSize: 12),
+                                          ),
+                                        ),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (!isInactive)
+                                              IconButton(
+                                                icon: const Icon(Icons.edit_note, color: Colors.blueAccent),
+                                                onPressed: () => _openForm(professional: prof),
+                                              ),
+                                            IconButton(
+                                              icon: Icon(
+                                                isInactive ? Icons.lock_open : Icons.lock_outline,
+                                                color: isInactive ? Colors.green : Colors.redAccent,
+                                                size: 20,
+                                              ),
+                                              onPressed: () => _showToggleStatusDialog(prof, isInactive),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                     ),
             ),
           ],

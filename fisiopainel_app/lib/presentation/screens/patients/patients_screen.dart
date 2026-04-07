@@ -101,96 +101,106 @@ class _PatientsScreenState extends State<PatientsScreen> {
             Expanded(
               child: _controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _controller.filteredPatients.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.person_search_outlined, size: 64, color: Colors.grey[300]),
-                          const SizedBox(height: 16),
-                          Text("Nenhum paciente encontrado.", style: TextStyle(color: Colors.grey[500])),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _controller.filteredPatients.length,
-                      itemBuilder: (context, index) {
-                        final patient = _controller.filteredPatients[index];
-                        return Opacity(
-                          opacity: patient.isActive ? 1.0 : 0.5,
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(16),
-                              leading: CircleAvatar(
-                                radius: 24,
-                                backgroundColor: patient.isActive 
-                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.05)
-                                  : Colors.grey.withOpacity(0.2),
-                                child: Text(
-                                  patient.completeName.isNotEmpty ? patient.completeName[0].toUpperCase() : '?',
-                                  style: TextStyle(
-                                    color: patient.isActive ? Theme.of(context).colorScheme.primary : Colors.grey, 
-                                    fontWeight: FontWeight.bold
+                  : RefreshIndicator(
+                      onRefresh: _controller.fetchPatients,
+                      child: _controller.filteredPatients.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                                Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.person_search_outlined, size: 64, color: Colors.grey[300]),
+                                      const SizedBox(height: 16),
+                                      Text("Nenhum paciente encontrado.", style: TextStyle(color: Colors.grey[500])),
+                                    ],
                                   ),
                                 ),
-                              ),
-                              title: Row(
-                                children: [
-                                  Text(
-                                    patient.completeName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                  ),
-                                  if (!patient.isActive)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 8.0),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[200],
-                                          borderRadius: BorderRadius.circular(4),
+                              ],
+                            )
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: _controller.filteredPatients.length,
+                              itemBuilder: (context, index) {
+                                final patient = _controller.filteredPatients[index];
+                                return Opacity(
+                                  opacity: patient.isActive ? 1.0 : 0.5,
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                                    ),
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.all(16),
+                                      leading: CircleAvatar(
+                                        radius: 24,
+                                        backgroundColor: patient.isActive 
+                                          ? Theme.of(context).colorScheme.primary.withOpacity(0.05)
+                                          : Colors.grey.withOpacity(0.2),
+                                        child: Text(
+                                          patient.completeName.isNotEmpty ? patient.completeName[0].toUpperCase() : '?',
+                                          style: TextStyle(
+                                            color: patient.isActive ? Theme.of(context).colorScheme.primary : Colors.grey, 
+                                            fontWeight: FontWeight.bold
+                                          ),
                                         ),
-                                        child: const Text('INATIVO', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                      ),
+                                      title: Row(
+                                        children: [
+                                          Text(
+                                            patient.completeName,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          ),
+                                          if (!patient.isActive)
+                                            Padding(
+                                              padding: const EdgeInsets.only(left: 8.0),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey[200],
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: const Text('INATIVO', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      subtitle: Padding(
+                                        padding: const EdgeInsets.only(top: 8.0),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.email_outlined, size: 14, color: Colors.grey),
+                                                const SizedBox(width: 4),
+                                                Expanded(child: Text(patient.email ?? 'Sem email', style: const TextStyle(fontSize: 12))),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.badge_outlined, size: 14, color: Colors.grey),
+                                                const SizedBox(width: 4),
+                                                Text("CPF: ${patient.cpf ?? 'N/D'}", style: const TextStyle(fontSize: 12)),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      trailing: IconButton(
+                                        icon: const Icon(Icons.edit_note, color: Colors.blueAccent),
+                                        onPressed: () => _openFormModal(patient: patient),
                                       ),
                                     ),
-                                ],
-                              ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.email_outlined, size: 14, color: Colors.grey),
-                                      const SizedBox(width: 4),
-                                      Expanded(child: Text(patient.email ?? 'Sem email', style: const TextStyle(fontSize: 12))),
-                                    ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.badge_outlined, size: 14, color: Colors.grey),
-                                      const SizedBox(width: 4),
-                                      Text("CPF: ${patient.cpf ?? 'N/D'}", style: const TextStyle(fontSize: 12)),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.edit_note, color: Colors.blueAccent),
-                              onPressed: () => _openFormModal(patient: patient),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
                     ),
             ),
           ],
