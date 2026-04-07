@@ -41,8 +41,7 @@ class ServiceTypeRepository {
 
   Future<void> createServiceType(String name) async {
     var headers = await _getHeaders();
-    // Using 'nome_atendimento' as per Django model
-    final body = jsonEncode({"nome_atendimento": name});
+    final body = jsonEncode(ServiceTypeDto.toJson(name, true));
 
     var response = await http.post(Uri.parse('$apiBase/'), headers: headers, body: body);
 
@@ -54,6 +53,23 @@ class ServiceTypeRepository {
 
     if (response.statusCode != 201) {
       throw Exception('Erro ao criar tipo: ${response.body}');
+    }
+  }
+
+  Future<void> updateServiceType(int id, String name, bool isActive) async {
+    var headers = await _getHeaders();
+    final body = jsonEncode(ServiceTypeDto.toJson(name, isActive));
+
+    var response = await http.put(Uri.parse('$apiBase/$id/'), headers: headers, body: body);
+
+    if (response.statusCode == 401) {
+      await AuthRepository().tryAutoLogin();
+      headers = await _getHeaders();
+      response = await http.put(Uri.parse('$apiBase/$id/'), headers: headers, body: body);
+    }
+
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao atualizar tipo: ${response.body}');
     }
   }
 

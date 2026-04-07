@@ -60,6 +60,7 @@ class Paciente(AuditModel):
 
 class TipoAtendimento(AuditModel):
     nome_atendimento = models.CharField(max_length=100)
+    ativo = models.BooleanField(default=True)
 
     def __str__(self):
         return self.nome_atendimento

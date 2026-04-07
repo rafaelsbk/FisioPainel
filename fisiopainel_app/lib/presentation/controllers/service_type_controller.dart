@@ -37,6 +37,22 @@ class ServiceTypeController extends ChangeNotifier {
     }
   }
 
+  Future<bool> update(int id, String name, bool isActive) async {
+    isLoading = true;
+    notifyListeners();
+    try {
+      await _repo.updateServiceType(id, name, isActive);
+      await loadData();
+      return true;
+    } catch (e) {
+      error = e.toString();
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> delete(int id) async {
     isLoading = true;
     notifyListeners();

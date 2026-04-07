@@ -133,6 +133,18 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       return;
     }
 
+    // Verificar se o tipo de atendimento está ativo
+    final selectedType = widget.controller.serviceTypesList.firstWhere((t) => t.id == _selectedTypeId);
+    if (!selectedType.isActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não é possível utilizar um tipo de atendimento desabilitado.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       final packageData = PackageModel(
         id: _isEditing ? widget.package!.id : null,
@@ -280,11 +292,42 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                   ),
                   value: _selectedTypeId,
                   items: widget.controller.serviceTypesList
+                      .where((t) => t.isActive || t.id == _selectedTypeId)
                       .map((t) => DropdownMenuItem(value: t.id, child: Text(t.name)))
                       .toList(),
                   onChanged: (val) => setState(() => _selectedTypeId = val),
                   validator: (v) => v == null ? 'Selecione o tipo' : null,
                 ),
+                if (_selectedTypeId != null)
+                  Builder(builder: (context) {
+                    final t = widget.controller.serviceTypesList.firstWhere((t) => t.id == _selectedTypeId);
+                    if (!t.isActive) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 12.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, color: Colors.red[800]),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Tipo de atendimento desabilitado.',
+                                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }),
                 const SizedBox(height: 15),
                 
                 DropdownButtonFormField<int>(
@@ -455,8 +498,14 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                         isPatientInactive = !p.isActive;
                       }
 
+                      bool isTypeInactive = false;
+                      if (_selectedTypeId != null) {
+                        final t = widget.controller.serviceTypesList.firstWhere((t) => t.id == _selectedTypeId);
+                        isTypeInactive = !t.isActive;
+                      }
+
                       return ElevatedButton(
-                        onPressed: (widget.controller.isLoading || isPatientInactive) ? null : _submit,
+                        onPressed: (widget.controller.isLoading || isPatientInactive || isTypeInactive) ? null : _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF3B82F6),
                           foregroundColor: Colors.white,

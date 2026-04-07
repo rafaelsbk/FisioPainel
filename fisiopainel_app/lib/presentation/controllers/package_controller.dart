@@ -15,6 +15,7 @@ class PackageController extends ChangeNotifier {
   final AppointmentRepository _appointmentRepo = AppointmentRepository();
 
   List<PackageModel> packages = [];
+  List<PackageModel> filteredPackages = [];
   List<PatientModel> patientsList = [];
   List<ProfessionalModel> professionalsList = [];
   List<ServiceTypeModel> serviceTypesList = [];
@@ -29,12 +30,39 @@ class PackageController extends ChangeNotifier {
 
     try {
       await Future.wait([_fetchPackages(), _fetchDependencies()]);
+      filteredPackages = List.from(packages);
     } catch (e) {
       error = e.toString();
     } finally {
       isLoading = false;
       notifyListeners();
     }
+  }
+
+  void filter({String? query, DateTime? start, DateTime? end}) {
+    filteredPackages = packages.where((pkg) {
+      bool matchesQuery = true;
+      bool matchesDate = true;
+
+      if (query != null && query.isNotEmpty) {
+        final q = query.toLowerCase();
+        final pName = (pkg.patientName ?? '').toLowerCase();
+        final sName = (pkg.serviceName ?? '').toLowerCase();
+        matchesQuery = pName.contains(q) || sName.contains(q);
+      }
+
+      if (start != null && pkg.startDate != null) {
+        matchesDate = pkg.startDate!.isAfter(start) || pkg.startDate!.isAtSameMomentAs(start);
+      }
+      if (matchesDate && end != null && pkg.startDate != null) {
+        // Para incluir o dia final completo
+        final endOfDay = DateTime(end.year, end.month, end.day, 23, 59, 59);
+        matchesDate = pkg.startDate!.isBefore(endOfDay);
+      }
+
+      return matchesQuery && matchesDate;
+    }).toList();
+    notifyListeners();
   }
 
   Future<void> _fetchPackages() async {

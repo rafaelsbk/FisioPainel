@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../controllers/service_type_controller.dart';
+import '../../../domain/models/service_type_model.dart';
 
 class ServiceTypeScreen extends StatefulWidget {
   const ServiceTypeScreen({super.key});
@@ -21,33 +22,61 @@ class _ServiceTypeScreenState extends State<ServiceTypeScreen> {
     _controller.loadData();
   }
 
-  void _addType() async {
-    final name = await showDialog<String>(
+  Future<void> _showForm({ServiceTypeModel? item}) async {
+    _nameCtrl.text = item?.name ?? '';
+    bool isActive = item?.isActive ?? true;
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Novo Tipo de Atendimento"),
-        content: TextField(
-          controller: _nameCtrl,
-          decoration: const InputDecoration(labelText: "Nome (Ex: RPG)"),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, _nameCtrl.text),
-            child: const Text("Salvar"),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(item == null ? "Novo Tipo de Atendimento" : "Editar Tipo"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(labelText: "Nome (Ex: RPG)"),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text("Atendimento Ativo"),
+                value: isActive,
+                onChanged: (val) => setDialogState(() => isActive = val),
+              ),
+            ],
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, {
+                'name': _nameCtrl.text,
+                'isActive': isActive,
+              }),
+              child: const Text("Salvar"),
+            ),
+          ],
+        ),
       ),
     );
 
-    if (name != null && name.isNotEmpty) {
-      _nameCtrl.clear();
-      final success = await _controller.create(name);
+    if (result != null && result['name'].isNotEmpty) {
+      bool success;
+      if (item == null) {
+        success = await _controller.create(result['name']);
+      } else {
+        success = await _controller.update(item.id, result['name'], result['isActive']);
+      }
+
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Criado com sucesso!"), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(item == null ? "Criado com sucesso!" : "Atualizado com sucesso!"),
+            backgroundColor: Colors.green,
+          ),
         );
       }
+      _nameCtrl.clear();
     }
   }
 
@@ -84,7 +113,7 @@ class _ServiceTypeScreenState extends State<ServiceTypeScreen> {
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
         child: ElevatedButton.icon(
-          onPressed: _addType,
+          onPressed: () => _showForm(),
           icon: const Icon(Icons.add),
           label: const Text("ADICIONAR NOVO TIPO"),
           style: ElevatedButton.styleFrom(
@@ -117,11 +146,40 @@ class _ServiceTypeScreenState extends State<ServiceTypeScreen> {
                             itemBuilder: (ctx, i) {
                           final item = _controller.list[i];
                           return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             child: ListTile(
-                              title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () => _deleteType(item.id),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              title: Row(
+                                children: [
+                                  Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 8),
+                                  if (!item.isActive)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red[100],
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        "INATIVO",
+                                        style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                                    onPressed: () => _showForm(item: item),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                    onPressed: () => _deleteType(item.id),
+                                  ),
+                                ],
                               ),
                             ),
                           );
