@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/services/storage_service.dart';
 
 class LoginController extends ChangeNotifier {
   final AuthRepository repository;
+  final StorageService _storage = StorageService();
 
   LoginController(this.repository);
 
@@ -20,20 +21,16 @@ class LoginController extends ChangeNotifier {
     error = '';
     notifyListeners();
 
-    print('--- DEBUG: Iniciando tentativa de login... ---'); // <--- ADICIONE
-
     try {
-      print('--- DEBUG: Chamando repository... ---'); // <--- ADICIONE
-
       final tokenDto = await repository.login(
         userController.text,
         passController.text,
       );
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('access_token', tokenDto.access);
-      await prefs.setString('refresh_token', tokenDto.refresh);
-      await prefs.setString('username', userController.text);
+      await _storage.saveAccessToken(tokenDto.access);
+      await _storage.saveRefreshToken(tokenDto.refresh);
+      await _storage.saveUsername(userController.text);
+      await _storage.savePassword(passController.text);
       
       // Decodifica o JWT para pegar o user_id
       try {
@@ -44,31 +41,27 @@ class LoginController extends ChangeNotifier {
           );
           final userId = payload['user_id'];
           if (userId != null) {
-            await prefs.setString('user_id', userId.toString());
+            await _storage.saveUserId(userId.toString());
           }
         }
       } catch (e) {
-        print('Erro ao decodificar token: $e');
+        debugPrint('Erro ao decodificar token: $e');
       }
 
       if (tokenDto.role != null) {
-        await prefs.setString('user_role', tokenDto.role!);
+        await _storage.saveUserRole(tokenDto.role!);
       }
 
       if (tokenDto.permissions != null) {
-        tokenDto.permissions!.forEach((key, value) async {
-          if (value is bool) {
-            await prefs.setBool('perm_$key', value);
+        for (var entry in tokenDto.permissions!.entries) {
+          if (entry.value is bool) {
+            await _storage.savePermission(entry.key, entry.value);
           }
-        });
+        }
       }
       
       return true;
     } catch (e) {
-      print(
-        '--- DEBUG: ERRO NO LOGIN: $e ---',
-      ); // <--- IMPORTANTE: VERIFIQUE ISSO NO CONSOLE
-
       error = e.toString().replaceAll('Exception: ', '');
       return false;
     } finally {

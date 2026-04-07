@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/storage_service.dart';
 import '../../domain/models/patient_model.dart';
 import '../dtos/patient_dto.dart';
 import 'auth_repository.dart';
@@ -9,11 +9,11 @@ import '../../config/api_config.dart';
 
 class PatientRepository {
   final String baseUrl = "${ApiConfig.baseUrl}/pacientes";
+  final StorageService _storage = StorageService();
 
   // Helper para pegar headers com Token
   Future<Map<String, String>> _getHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token');
+    final token = await _storage.getAccessToken();
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',

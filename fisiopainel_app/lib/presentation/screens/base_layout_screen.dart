@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:fisiopainel_app/presentation/screens/packages/package_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/services/storage_service.dart';
 import '../controllers/notification_controller.dart';
 import 'patients/patients_screen.dart';
 import 'professionals/professional_screen.dart';
@@ -30,6 +30,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   String? _username;
   bool _canAccessFinance = false;
   final NotificationController _notifController = NotificationController();
+  final StorageService _storage = StorageService();
 
   @override
   void initState() {
@@ -39,17 +40,19 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   }
 
   Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
+    final role = await _storage.getUserRole();
+    final name = await _storage.getUsername();
+    final canFinance = await _storage.getPermission('pode_gerenciar_financeiro');
+    
     setState(() {
-      _userRole = prefs.getString('user_role')?.toUpperCase();
-      _username = prefs.getString('username');
-      _canAccessFinance = prefs.getBool('perm_pode_gerenciar_financeiro') ?? false;
+      _userRole = role?.toUpperCase();
+      _username = name;
+      _canAccessFinance = canFinance;
     });
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await _storage.clearAll();
     if (mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
     }

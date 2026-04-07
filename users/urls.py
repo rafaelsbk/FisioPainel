@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import UserViewSet, PacienteViewSet, TipoAtendimentoViewSet, PacoteViewSet, AgendamentoViewSet, SolicitacaoAgendamentoViewSet, RelatorioViewSet, UserRoleViewSet, FinanceiroViewSet
 
 router = DefaultRouter()
-router.register(r'users', UserViewSet)
+router.register(r'users', UserViewSet, basename='users')
 router.register(r'user-roles', UserRoleViewSet)
 router.register(r'pacientes', PacienteViewSet)
 router.register(r'tipos-atendimento', TipoAtendimentoViewSet)
