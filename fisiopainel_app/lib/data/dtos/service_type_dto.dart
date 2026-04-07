@@ -6,6 +6,14 @@ class ServiceTypeDto {
     return ServiceTypeModel(
       id: json['id'],
       name: json['nome_atendimento'] ?? json['nome'] ?? json['description'] ?? 'Sem Nome',
+      isActive: json['ativo'] ?? true,
     );
+  }
+
+  static Map<String, dynamic> toJson(String name, bool isActive) {
+    return {
+      'nome_atendimento': name,
+      'ativo': isActive,
+    };
   }
 }

@@ -20,10 +20,15 @@ class PackagesScreen extends StatefulWidget {
 class _PackagesScreenState extends State<PackagesScreen> {
   final PackageController _controller = PackageController();
   final AppointmentRepository _appointmentRepo = AppointmentRepository();
+  final TextEditingController _searchController = TextEditingController();
 
   final Map<int, List<AppointmentModel>> _appointmentsMap = {};
   final Map<int, bool> _isLoadingAppointments = {};
   final Map<int, bool> _isExpandedMap = {};
+
+  bool _isDateSearchMode = false;
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   @override
   void initState() {
@@ -32,6 +37,51 @@ class _PackagesScreenState extends State<PackagesScreen> {
       if (mounted) setState(() {});
     });
     _controller.loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _controller.filter(
+      query: _isDateSearchMode ? null : _searchController.text,
+      start: _isDateSearchMode ? _startDate : null,
+      end: _isDateSearchMode ? _endDate : null,
+    );
+  }
+
+  Future<void> _selectDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2101),
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+      locale: const Locale('pt', 'BR'),
+    );
+
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+      _onSearchChanged();
+    }
+  }
+
+  void _toggleSearchMode() {
+    setState(() {
+      _isDateSearchMode = !_isDateSearchMode;
+      // Limpa os filtros ao trocar
+      _searchController.clear();
+      _startDate = null;
+      _endDate = null;
+      _controller.filter(); // Reseta a lista
+    });
   }
 
   void _openForm({PackageModel? package}) async {
@@ -166,12 +216,84 @@ class _PackagesScreenState extends State<PackagesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
+            // --- BARRA DE BUSCA ---
+            Row(
+              children: [
+                Expanded(
+                  child: _isDateSearchMode
+                      ? GestureDetector(
+                          onTap: _selectDateRange,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.date_range, size: 20, color: Colors.blue),
+                                const SizedBox(width: 12),
+                                Text(
+                                  _startDate != null && _endDate != null
+                                      ? '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}'
+                                      : 'Filtrar por período...',
+                                  style: TextStyle(color: _startDate != null ? Colors.black87 : Colors.grey[600]),
+                                ),
+                                if (_startDate != null) ...[
+                                  const Spacer(),
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _startDate = null;
+                                        _endDate = null;
+                                      });
+                                      _onSearchChanged();
+                                    },
+                                    child: const Icon(Icons.close, size: 18, color: Colors.grey),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        )
+                      : TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Buscar por paciente ou serviço...',
+                            prefixIcon: const Icon(Icons.search, size: 20),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _onSearchChanged();
+                                    },
+                                  )
+                                : null,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onChanged: (_) => _onSearchChanged(),
+                        ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _toggleSearchMode,
+                  icon: Icon(
+                    _isDateSearchMode ? Icons.text_fields : Icons.date_range,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  tooltip: _isDateSearchMode ? 'Buscar por texto' : 'Buscar por período',
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             Expanded(
               child: _controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : RefreshIndicator(
                       onRefresh: _controller.loadData,
-                      child: _controller.packages.isEmpty
+                      child: _controller.filteredPackages.isEmpty
                           ? ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
                               children: [
@@ -182,7 +304,10 @@ class _PackagesScreenState extends State<PackagesScreen> {
                                     children: [
                                       Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[300]),
                                       const SizedBox(height: 16),
-                                      Text("Nenhum pacote registrado.", style: TextStyle(color: Colors.grey[500])),
+                                      Text(_controller.packages.isEmpty 
+                                          ? "Nenhum pacote registrado."
+                                          : "Nenhum pacote encontrado para os filtros.", 
+                                          style: TextStyle(color: Colors.grey[500])),
                                     ],
                                   ),
                                 ),
@@ -191,9 +316,9 @@ class _PackagesScreenState extends State<PackagesScreen> {
                           : ListView.builder(
                               physics: const AlwaysScrollableScrollPhysics(),
                               padding: const EdgeInsets.only(bottom: 20),
-                              itemCount: _controller.packages.length,
+                              itemCount: _controller.filteredPackages.length,
                               itemBuilder: (context, index) {
-                            final pkg = _controller.packages[index];
+                            final pkg = _controller.filteredPackages[index];
                             final isExpanded = _isExpandedMap[pkg.id] ?? false;
                             
                             final patientName = _controller.patientsList
@@ -221,7 +346,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                                       setState(() => _isExpandedMap[pkg.id!] = !isExpanded);
                                       if (!isExpanded && _appointmentsMap[pkg.id] == null) _fetchAppointmentsForPackage(pkg.id!);
                                     },
-                                    title: Text('$patientName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    title: Text(patientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                     subtitle: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
