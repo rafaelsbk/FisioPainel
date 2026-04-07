@@ -86,14 +86,40 @@ class AuthRepository {
   }
 
   /// ---------------------------------------------------
-  /// 3. RENOVÇÃO DE TOKEN (Refresh)
-  /// Tenta pegar um novo access token usando o refresh token salvo
+  /// 3. RENOVAÇÃO DE TOKEN (Refresh)
+  /// Tenta validar o token atual ou pegar um novo access token usando o refresh token salvo
   /// ---------------------------------------------------
   Future<bool> tryAutoLogin() async {
     final prefs = await SharedPreferences.getInstance();
+    final accessToken = prefs.getString('access_token');
     final refreshToken = prefs.getString('refresh_token');
 
-    if (refreshToken == null) return false; // Nem tem token salvo
+    if (accessToken == null) return false;
+
+    // 1. Verifica se o access token atual ainda é válido
+    try {
+      final parts = accessToken.split('.');
+      if (parts.length == 3) {
+        final String payloadPart = base64Url.normalize(parts[1]);
+        final String decodedPayload = utf8.decode(base64Url.decode(payloadPart));
+        final Map<String, dynamic> payload = jsonDecode(decodedPayload);
+        
+        final exp = payload['exp'];
+        if (exp != null) {
+          final expiryDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+          // Se faltar mais de 1 minuto para expirar, considera válido
+          if (expiryDate.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      print('Erro ao validar expiração do token: $e');
+      // Em caso de erro na decodificação, segue para tentar o refresh
+    }
+
+    // 2. Se expirou ou está perto de expirar, tenta o refresh
+    if (refreshToken == null) return false;
 
     final url = Uri.parse('$baseUrl/token/refresh/');
 
@@ -113,7 +139,10 @@ class AuthRepository {
         return true; // Renovado com sucesso!
       } else {
         // Refresh token também expirou ou é inválido
-        await prefs.clear(); // Limpa tudo para forçar login
+        // Limpa apenas os tokens para não perder preferências se houver, 
+        // mas aqui costuma-se limpar tudo relacionado à sessão
+        await prefs.remove('access_token');
+        await prefs.remove('refresh_token');
         return false;
       }
     } catch (e) {

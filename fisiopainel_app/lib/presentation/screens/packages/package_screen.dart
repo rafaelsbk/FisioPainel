@@ -115,24 +115,46 @@ class _PackagesScreenState extends State<PackagesScreen> {
     }
   }
 
-  void _deletePackage(int packageId) async {
+  void _deletePackage(PackageModel pkg) async {
+    // 1. Verifica se já temos os agendamentos carregados para checar sessões realizadas
+    if (_appointmentsMap[pkg.id] == null) {
+      await _fetchAppointmentsForPackage(pkg.id!);
+    }
+
+    final hasRealized = _appointmentsMap[pkg.id]?.any((a) =>
+            a.status.toUpperCase() == 'REALIZADO' ||
+            a.status.toUpperCase() == 'FALTA') ??
+        false;
+
+    final String message = hasRealized
+        ? "Esse pacote já possui atendimentos realizados, deseja realmente excluir?"
+        : "Deseja apagar esse pacote?";
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Confirmar Exclusão"),
-        content: const Text("Tem certeza que deseja excluir este pacote e todos os seus agendamentos?"),
+        content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("CANCELAR")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("EXCLUIR", style: TextStyle(color: Colors.redAccent))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("CANCELAR")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("EXCLUIR",
+                  style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
 
     if (confirm == true) {
-      final success = await _controller.deletePackage(packageId);
+      final success = await _controller.deletePackage(pkg.id!);
       if (mounted && success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Pacote excluído com sucesso"), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+          const SnackBar(
+              content: Text("Pacote excluído com sucesso"),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -373,7 +395,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                                         PopupMenuButton<String>(
                                           onSelected: (value) {
                                             if (value == 'edit') _openForm(package: pkg);
-                                            if (value == 'delete') _deletePackage(pkg.id!);
+                                            if (value == 'delete') _deletePackage(pkg);
                                             if (value == 'bulk') _openBulkSchedule(pkg.id!, pkg.quantity);
                                           },
                                           itemBuilder: (context) => [
