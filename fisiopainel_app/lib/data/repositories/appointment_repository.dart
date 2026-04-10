@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/storage_service.dart';
 import '../../domain/models/appointment_model.dart';
 import '../dtos/appointment_dto.dart';
 import 'auth_repository.dart';
@@ -9,10 +9,10 @@ import '../../config/api_config.dart';
 
 class AppointmentRepository {
   final String apiBase = ApiConfig.baseUrl;
+  final StorageService _storage = StorageService();
 
   Future<Map<String, String>> _getHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token');
+    final token = await _storage.getAccessToken();
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',

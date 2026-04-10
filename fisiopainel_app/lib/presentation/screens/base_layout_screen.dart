@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:fisiopainel_app/presentation/screens/packages/package_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/services/storage_service.dart';
 import '../controllers/notification_controller.dart';
 import 'patients/patients_screen.dart';
 import 'professionals/professional_screen.dart';
@@ -16,6 +16,10 @@ import 'financeiro/financeiro_screen.dart';
 class BaseLayoutScreen extends StatefulWidget {
   const BaseLayoutScreen({super.key});
 
+  static _BaseLayoutScreenState? of(BuildContext context) {
+    return context.findAncestorStateOfType<_BaseLayoutScreenState>();
+  }
+
   @override
   State<BaseLayoutScreen> createState() => _BaseLayoutScreenState();
 }
@@ -26,6 +30,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   String? _username;
   bool _canAccessFinance = false;
   final NotificationController _notifController = NotificationController();
+  final StorageService _storage = StorageService();
 
   @override
   void initState() {
@@ -35,23 +40,25 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   }
 
   Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
+    final role = await _storage.getUserRole();
+    final name = await _storage.getUsername();
+    final canFinance = await _storage.getPermission('pode_gerenciar_financeiro');
+    
     setState(() {
-      _userRole = prefs.getString('user_role')?.toUpperCase();
-      _username = prefs.getString('username');
-      _canAccessFinance = prefs.getBool('perm_pode_gerenciar_financeiro') ?? false;
+      _userRole = role?.toUpperCase();
+      _username = name;
+      _canAccessFinance = canFinance;
     });
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await _storage.clearAll();
     if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
     }
   }
 
-  void _selectPage(int index, {BuildContext? ctx}) {
+  void selectPage(int index, {BuildContext? ctx}) {
     setState(() {
       _selectedIndex = index;
     });
@@ -152,7 +159,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
         if (index == 1) targetIndex = 5;
         if (index == 2) targetIndex = 6;
         if (index == 3) targetIndex = 7;
-        _selectPage(targetIndex);
+        selectPage(targetIndex);
       },
       items: [
         const BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: "Início"),
@@ -176,37 +183,61 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
 
   Widget _buildDrawer() {
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          DrawerHeader(
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
             decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircleAvatar(radius: 30, backgroundColor: Colors.white, child: Icon(Icons.person, size: 35)),
-                  const SizedBox(height: 10),
-                  Text(_username ?? "Usuário", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                ],
-              ),
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.person, size: 24, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _username ?? "Usuário",
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        _userRole ?? "",
+                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          _buildDrawerItem(0, "Início", Icons.dashboard),
-          _buildDrawerItem(5, "Agenda Geral", Icons.calendar_today),
-          _buildDrawerItem(6, "Notificações", Icons.notifications),
-          _buildDrawerItem(7, "Relatórios", Icons.analytics),
-          if (_userRole == 'ADMIN' || _canAccessFinance) _buildDrawerItem(9, "Financeiro", Icons.attach_money),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
-            child: Text("CADASTROS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerItem(0, "Início", Icons.dashboard),
+                _buildDrawerItem(5, "Agenda Geral", Icons.calendar_today),
+                _buildDrawerItem(6, "Notificações", Icons.notifications),
+                _buildDrawerItem(7, "Relatórios", Icons.analytics),
+                if (_userRole == 'ADMIN' || _canAccessFinance) _buildDrawerItem(9, "Financeiro", Icons.attach_money),
+                const Divider(),
+                const Padding(
+                  padding: EdgeInsets.only(left: 16, top: 8, bottom: 8),
+                  child: Text("CADASTROS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                ),
+                _buildDrawerItem(1, "Pacientes", Icons.people),
+                if (_userRole == 'ADMIN') _buildDrawerItem(2, "Profissionais", Icons.medical_services),
+                _buildDrawerItem(3, "Pacotes", Icons.inventory_2),
+                if (_userRole == 'ADMIN') _buildDrawerItem(4, "Tipos de Atendimento", Icons.category),
+                if (_userRole == 'ADMIN') _buildDrawerItem(8, "Cargos e Permissões", Icons.admin_panel_settings),
+              ],
+            ),
           ),
-          _buildDrawerItem(1, "Pacientes", Icons.people),
-          if (_userRole == 'ADMIN') _buildDrawerItem(2, "Profissionais", Icons.medical_services),
-          _buildDrawerItem(3, "Pacotes", Icons.inventory_2),
-          if (_userRole == 'ADMIN') _buildDrawerItem(4, "Tipos de Atendimento", Icons.category),
-          if (_userRole == 'ADMIN') _buildDrawerItem(8, "Cargos e Permissões", Icons.admin_panel_settings),
         ],
       ),
     );
@@ -217,7 +248,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
       leading: Icon(icon, color: _selectedIndex == index ? Theme.of(context).colorScheme.primary : Colors.grey[700]),
       title: Text(title, style: TextStyle(fontWeight: _selectedIndex == index ? FontWeight.bold : FontWeight.normal)),
       selected: _selectedIndex == index,
-      onTap: () => _selectPage(index, ctx: context),
+      onTap: () => selectPage(index, ctx: context),
     );
   }
 
@@ -231,12 +262,12 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: const Row(
               children: [
-                Icon(Icons.flash_on, color: Colors.tealAccent),
+                Icon(Icons.flash_on, color: Colors.tealAccent, size: 20),
                 SizedBox(width: 12),
-                Text("FISIOPAINEL", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                Text("FISIOPAINEL", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
               ],
             ),
           ),
@@ -274,7 +305,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
-        onTap: () => _selectPage(index),
+        onTap: () => selectPage(index),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         selected: isSelected,
         selectedTileColor: Colors.white.withOpacity(0.1),

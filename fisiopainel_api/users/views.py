@@ -63,8 +63,14 @@ class FinanceiroViewSet(viewsets.ViewSet):
         return Response(proximos_renovacao)
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser or (user.users_roles and user.users_roles.pode_gerenciar_usuarios):
+            return User.objects.all()
+        # Usuário comum só vê a si mesmo
+        return User.objects.filter(id=user.id)
     
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:

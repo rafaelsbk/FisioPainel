@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/repositories/auth_repository.dart';
 
 class AuthGuard extends StatefulWidget {
   final Widget child; // A tela que queremos proteger
@@ -21,24 +21,23 @@ class _AuthGuardState extends State<AuthGuard> {
   }
 
   Future<void> _checkAuth() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token');
+    final AuthRepository authRepo = AuthRepository();
+    final bool isValid = await authRepo.tryAutoLogin();
 
-    // Aqui você poderia adicionar lógica para verificar se o token expirou
-    if (token != null && token.isNotEmpty) {
-      setState(() {
-        _isAuthenticated = true;
-        _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _isLoading = false;
-        _isAuthenticated = false;
-      });
-
-      // Se não tiver token, manda pro login imediatamente
+    if (isValid) {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+        setState(() {
+          _isAuthenticated = true;
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isAuthenticated = false;
+        });
+        Navigator.pushReplacementNamed(context, '/');
       }
     }
   }

@@ -121,11 +121,12 @@ class PackageController extends ChangeNotifier {
     notifyListeners();
     try {
       await _repo.deletePackage(id);
-      await _fetchPackages(); // Recarrega a lista
+      // Remove localmente para sumir instantaneamente da tela
+      packages.removeWhere((p) => p.id == id);
+      filteredPackages.removeWhere((p) => p.id == id);
       return true;
     } catch (e) {
       error = e.toString();
-      notifyListeners();
       return false;
     } finally {
       isLoading = false;

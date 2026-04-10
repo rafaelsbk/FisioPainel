@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/storage_service.dart';
 
 import '../../config/api_config.dart';
 
@@ -14,6 +14,7 @@ import '../../domain/models/professional_model.dart';
 class AuthRepository {
   // CONFIGURAÇÃO DA URL BASE
   final String baseUrl = ApiConfig.baseUrl;
+  final StorageService _storage = StorageService();
 
   /// ---------------------------------------------------
   /// 1. MÉTODO DE LOGIN (Obter o Token)
@@ -21,7 +22,6 @@ class AuthRepository {
   Future<TokenDto> login(String username, String password) async {
     final url = Uri.parse('$baseUrl/token/');
     final body = jsonEncode({"username": username, "password": password});
-    print('--- DEBUG: Enviando login para $url: $body ---');
 
     try {
       final response = await http.post(
@@ -71,11 +71,6 @@ class AuthRepository {
       if (response.statusCode == 201) {
         return true; // 201 = Created (Criado com sucesso)
       } else {
-        // Log para debug (útil para ver o erro detalhado do Django no terminal)
-        print(
-          'Erro no cadastro (Status ${response.statusCode}): ${response.body}',
-        );
-
         // Tenta pegar a mensagem de erro do Django, se houver
         final errorMsg = response.body;
         throw Exception('Falha ao registrar: $errorMsg');
@@ -86,38 +81,102 @@ class AuthRepository {
   }
 
   /// ---------------------------------------------------
-  /// 3. RENOVÇÃO DE TOKEN (Refresh)
-  /// Tenta pegar um novo access token usando o refresh token salvo
+  /// 3. RENOVAÇÃO DE TOKEN (Refresh)
+  /// Tenta validar o token atual ou pegar um novo access token usando o refresh token salvo
   /// ---------------------------------------------------
   Future<bool> tryAutoLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    final refreshToken = prefs.getString('refresh_token');
+    final accessToken = await _storage.getAccessToken();
+    final refreshToken = await _storage.getRefreshToken();
+    final username = await _storage.getUsername();
+    final password = await _storage.getPassword();
 
-    if (refreshToken == null) return false; // Nem tem token salvo
+    if (accessToken != null) {
+      // 1. Verifica se o access token atual ainda é válido
+      try {
+        final parts = accessToken.split('.');
+        if (parts.length == 3) {
+          final String payloadPart = base64Url.normalize(parts[1]);
+          final String decodedPayload = utf8.decode(base64Url.decode(payloadPart));
+          final Map<String, dynamic> payload = jsonDecode(decodedPayload);
+          
+          final exp = payload['exp'];
+          if (exp != null) {
+            final expiryDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+            // Se faltar mais de 1 minuto para expirar, considera válido
+            if (expiryDate.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
+              return true;
+            }
+          }
+        }
+      } catch (e) {
+        // Em caso de erro, segue
+      }
+    }
 
-    final url = Uri.parse('$baseUrl/token/refresh/');
+    // 2. Se expirou ou está perto de expirar, tenta o refresh
+    if (refreshToken != null) {
+      final url = Uri.parse('$baseUrl/token/refresh/');
+      try {
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({"refresh": refreshToken}),
+        );
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({"refresh": refreshToken}),
-      );
+        if (response.statusCode == 200) {
+          final body = jsonDecode(response.body);
+          final newAccessToken = body['access'];
+          await _storage.saveAccessToken(newAccessToken);
+          return true;
+        }
+      } catch (e) {
+        // Em caso de erro, segue
+      }
+    }
 
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        final newAccessToken = body['access'];
+    // 3. Se refresh falhou ou não existe, tenta o login completo com as credenciais salvas
+    if (username != null && password != null) {
+      try {
+        final tokenDto = await login(username, password);
+        
+        await _storage.saveAccessToken(tokenDto.access);
+        await _storage.saveRefreshToken(tokenDto.refresh);
+        
+        // Decodifica o JWT para pegar o user_id
+        try {
+          final parts = tokenDto.access.split('.');
+          if (parts.length == 3) {
+            final payload = jsonDecode(
+              utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+            );
+            final userId = payload['user_id'];
+            if (userId != null) {
+              await _storage.saveUserId(userId.toString());
+            }
+          }
+        } catch (e) {
+          // segue
+        }
 
-        // Salva o novo token
-        await prefs.setString('access_token', newAccessToken);
-        return true; // Renovado com sucesso!
-      } else {
-        // Refresh token também expirou ou é inválido
-        await prefs.clear(); // Limpa tudo para forçar login
+        if (tokenDto.role != null) {
+          await _storage.saveUserRole(tokenDto.role!);
+        }
+
+        if (tokenDto.permissions != null) {
+          for (var entry in tokenDto.permissions!.entries) {
+            if (entry.value is bool) {
+              await _storage.savePermission(entry.key, entry.value);
+            }
+          }
+        }
+        return true;
+      } catch (e) {
+        // Se falhou o login com as credenciais salvas, limpa tudo para forçar login manual
+        await _storage.clearAll();
         return false;
       }
-    } catch (e) {
-      return false;
     }
+
+    return false;
   }
 }

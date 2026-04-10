@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../data/repositories/appointment_repository.dart';
+import '../../data/repositories/financeiro_repository.dart';
 import '../../domain/models/appointment_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'appointments/appointment_detail_screen.dart';
+import 'base_layout_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -14,8 +16,13 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final AppointmentRepository _repository = AppointmentRepository();
+  final FinanceiroRepository _financeiroRepo = FinanceiroRepository();
+  
   List<AppointmentModel> _todayAppointments = [];
+  List<Map<String, dynamic>> _renovacoes = [];
+  
   bool _isLoading = true;
+  bool _isRenovacoesLoading = false;
   String? _userName;
 
   @override
@@ -29,7 +36,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _userName = prefs.getString('username');
     });
-    await _fetchTodayAppointments();
+    await Future.wait([
+      _fetchTodayAppointments(),
+      _fetchRenovacoes(),
+    ]);
   }
 
   Future<void> _fetchTodayAppointments() async {
@@ -55,11 +65,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erro ao carregar agenda: $e")),
-        );
       }
     }
+  }
+
+  Future<void> _fetchRenovacoes() async {
+    if (mounted) setState(() => _isRenovacoesLoading = true);
+    try {
+      final renovacoes = await _financeiroRepo.getRenovacoes();
+      if (mounted) {
+        setState(() {
+          _renovacoes = renovacoes;
+          _isRenovacoesLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isRenovacoesLoading = false);
+    }
+  }
+
+  void _goToRenovacoes() {
+    // 9 é o índice do Financeiro no BaseLayoutScreen
+    BaseLayoutScreen.of(context)?.selectPage(9);
   }
 
   Color _getStatusColor(String status) {
@@ -80,7 +107,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final int pending = _todayAppointments.where((a) => a.status == 'AGENDADO').length;
 
     return RefreshIndicator(
-      onRefresh: _fetchTodayAppointments,
+      onRefresh: () => Future.wait([_fetchTodayAppointments(), _fetchRenovacoes()]),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
@@ -94,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Bom dia, ${_userName ?? 'Profissional'}!",
+                    "Olá, ${_userName ?? 'Profissional'}!",
                     style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5),
                   ),
                   Text(
@@ -112,7 +139,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+
+          // --- ALERTA DE RENOVAÇÃO ---
+          if (_renovacoes.isNotEmpty)
+            GestureDetector(
+              onTap: _goToRenovacoes,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 24),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange[800]),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${_renovacoes.length} pacotes próximos ao fim",
+                            style: TextStyle(color: Colors.orange[900], fontWeight: FontWeight.bold),
+                          ),
+                          const Text(
+                            "Toque para ver e renovar agora.",
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios, size: 14, color: Colors.orange[800]),
+                  ],
+                ),
+              ),
+            ),
           
           // KPI Row
           SizedBox(

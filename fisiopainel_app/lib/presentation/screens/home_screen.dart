@@ -1,7 +1,27 @@
 import 'package:flutter/material.dart';
+import '../../data/repositories/auth_repository.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    final authRepo = AuthRepository();
+    final bool hasValidSession = await authRepo.tryAutoLogin();
+    if (hasValidSession && mounted) {
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
