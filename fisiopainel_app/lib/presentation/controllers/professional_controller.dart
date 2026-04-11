@@ -10,6 +10,7 @@ class ProfessionalController extends ChangeNotifier {
 
   // Lista "Original" (Backup de tudo que veio da API)
   List<ProfessionalModel> _allProfessionals = [];
+  List<ProfessionalModel> get allProfessionals => _allProfessionals;
 
   // Lista "Exibida" (O que aparece na tela, podendo ser filtrada)
   List<ProfessionalModel> filteredProfessionals = [];

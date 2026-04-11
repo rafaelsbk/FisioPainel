@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../domain/models/professional_model.dart';
 import '../../controllers/professional_controller.dart';
 import '../../../domain/models/user_role_model.dart';
+import '../../widgets/cpf_formatter.dart';
 
 class ProfessionalFormScreen extends StatefulWidget {
   final ProfessionalController controller;
@@ -41,6 +42,9 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  final _cpfFocus = FocusNode();
+  String? _cpfError;
+
   TaxaReposicaoTipo _taxaReposicaoTipo = TaxaReposicaoTipo.porcentagem;
   RepasseTipo _repasseTipo = RepasseTipo.porcentagem;
 
@@ -54,7 +58,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
       _lastNameCtrl.text = p.lastName;
       _emailCtrl.text = p.email;
       _phoneCtrl.text = p.phoneNumber;
-      _cpfCtrl.text = p.cpf;
+      _cpfCtrl.text = CpfInputFormatter.format(p.cpf);
       _crefitoCtrl.text = p.crefito;
       _percentualCtrl.text = p.percentualRepasse?.toString() ?? '';
       _valorRepasseFixoCtrl.text = p.valorRepasseFixo?.toString() ?? '';
@@ -74,6 +78,35 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
         _taxaReposicaoTipo = TaxaReposicaoTipo.porcentagem;
       }
     }
+
+    _cpfFocus.addListener(() {
+      if (!_cpfFocus.hasFocus) {
+        _checkDuplicateCpf();
+      }
+    });
+  }
+
+  void _checkDuplicateCpf() {
+    final cpfRaw = _cpfCtrl.text.replaceAll(RegExp(r'\D'), '');
+    if (cpfRaw.isEmpty) {
+      setState(() => _cpfError = null);
+      return;
+    }
+
+    ProfessionalModel? duplicate;
+    for (var p in widget.controller.allProfessionals) {
+      final pCpfRaw = p.cpf.replaceAll(RegExp(r'\D'), '');
+      if (pCpfRaw == cpfRaw && p.id != widget.professionalToEdit?.id) {
+        duplicate = p;
+        break;
+      }
+    }
+
+    if (duplicate != null) {
+      setState(() => _cpfError = 'CPF JÁ CADASTRADO, NO NOME ${duplicate!.fullName}');
+    } else {
+      setState(() => _cpfError = null);
+    }
   }
 
   @override
@@ -91,10 +124,14 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
     _valorRepasseFixoCtrl.dispose();
     _percentualTaxaReposicaoCtrl.dispose();
     _valorTaxaReposicaoFixoCtrl.dispose();
+    _cpfFocus.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
+    _checkDuplicateCpf();
+    if (_cpfError != null) return;
+
     if (_formKey.currentState!.validate()) {
       if (_passwordCtrl.text != _confirmPasswordCtrl.text) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -273,7 +310,17 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _cpfCtrl,
-                        decoration: const InputDecoration(labelText: 'CPF', prefixIcon: Icon(Icons.credit_card_outlined)),
+                        focusNode: _cpfFocus,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          CpfInputFormatter(),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: 'CPF',
+                          prefixIcon: const Icon(Icons.credit_card_outlined),
+                          errorText: _cpfError,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(

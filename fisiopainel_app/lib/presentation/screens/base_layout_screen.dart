@@ -54,7 +54,7 @@ class _BaseLayoutScreenState extends State<BaseLayoutScreen> {
   Future<void> _logout() async {
     await _storage.clearAll();
     if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
   }
 

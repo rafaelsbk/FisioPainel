@@ -116,11 +116,11 @@ class PacienteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Paciente
         fields = [
-            'id', 'complete_name', 'address', 'email', 'numero_telefone', 
+            'id', 'complete_name', 'address', 'cep', 'estado', 'cidade',
+            'bairro', 'numero', 'complemento', 'email', 'numero_telefone',
             'cpf', 'rg', 'is_active', 'profissional_responsavel',
             'data_criacao', 'data_ultima_edicao', 'criado_por_nome', 'editado_por_nome'
         ]
-
 class TipoAtendimentoSerializer(serializers.ModelSerializer):
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')

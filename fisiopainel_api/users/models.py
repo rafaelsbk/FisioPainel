@@ -48,6 +48,12 @@ class UserRole(AuditModel):
 class Paciente(AuditModel):
     complete_name = models.CharField(max_length=255)
     address = models.CharField(max_length=255, blank=True, null=True)
+    cep = models.CharField(max_length=10, blank=True, null=True)
+    estado = models.CharField(max_length=2, blank=True, null=True)
+    cidade = models.CharField(max_length=100, blank=True, null=True)
+    bairro = models.CharField(max_length=100, blank=True, null=True)
+    numero = models.CharField(max_length=20, blank=True, null=True)
+    complemento = models.CharField(max_length=100, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     numero_telefone = models.CharField(max_length=20, blank=True, null=True)
     cpf = models.CharField(max_length=14, blank=True, null=True)

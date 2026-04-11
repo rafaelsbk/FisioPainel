@@ -6,6 +6,7 @@ class PatientController extends ChangeNotifier {
   final PatientRepository repository = PatientRepository();
 
   List<PatientModel> _allPatients = [];
+  List<PatientModel> get allPatients => _allPatients;
   List<PatientModel> filteredPatients = [];
   bool isLoading = false;
   String error = '';

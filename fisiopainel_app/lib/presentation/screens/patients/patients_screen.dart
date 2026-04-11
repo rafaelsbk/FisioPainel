@@ -151,12 +151,14 @@ class _PatientsScreenState extends State<PatientsScreen> {
                                       ),
                                       title: Row(
                                         children: [
-                                          Text(
-                                            patient.completeName,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                          Expanded(
+                                            child: Text(
+                                              patient.completeName,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
-                                          if (!patient.isActive)
-                                            Padding(
+                                          if (!patient.isActive)                                            Padding(
                                               padding: const EdgeInsets.only(left: 8.0),
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

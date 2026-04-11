@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import '../../controllers/global_appointment_controller.dart';
 import '../../../domain/models/appointment_model.dart';
 import 'appointment_detail_screen.dart';
+import '../../widgets/network_error_dialog.dart';
 
 class GlobalAppointmentsScreen extends StatefulWidget {
   const GlobalAppointmentsScreen({super.key});
@@ -22,10 +23,29 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
   void initState() {
     super.initState();
     _initLocale();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _controller.addListener(_onControllerChange);
     _controller.loadAppointments();
+  }
+
+  void _onControllerChange() {
+    if (mounted) {
+      if (_controller.error.isNotEmpty) {
+        final err = _controller.error.toLowerCase();
+        if (err.contains('socketexception') || 
+            err.contains('connection refused') || 
+            err.contains('failed host lookup') ||
+            err.contains('was not successful')) {
+          NetworkErrorDialog.show(context, _controller.error);
+        }
+      }
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerChange);
+    super.dispose();
   }
 
   Future<void> _initLocale() async {
@@ -123,40 +143,49 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                monthName.toUpperCase(),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
-              ),
-              const Text("Agenda Geral", style: TextStyle(color: Colors.grey)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  monthName.toUpperCase(),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const Text("Agenda Geral", style: TextStyle(color: Colors.grey)),
+              ],
+            ),
           ),
-          Row(
-            children: [
-              IconButton(onPressed: _previousWeek, icon: const Icon(Icons.chevron_left)),
-              TextButton(onPressed: _today, child: const Text("HOJE")),
-              IconButton(onPressed: _nextWeek, icon: const Icon(Icons.chevron_right)),
-              const SizedBox(width: 10),
-              const VerticalDivider(),
-              const SizedBox(width: 10),
-              ToggleButtons(
-                isSelected: [!_isListView, _isListView],
-                onPressed: (index) => setState(() => _isListView = index == 1),
-                borderRadius: BorderRadius.circular(8),
-                constraints: const BoxConstraints(minHeight: 36, minWidth: 44),
-                children: const [
-                  Icon(Icons.calendar_view_week, size: 20),
-                  Icon(Icons.list, size: 20),
+          const SizedBox(width: 8),
+          Flexible(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  IconButton(onPressed: _previousWeek, icon: const Icon(Icons.chevron_left)),
+                  TextButton(onPressed: _today, child: const Text("HOJE")),
+                  IconButton(onPressed: _nextWeek, icon: const Icon(Icons.chevron_right)),
+                  const SizedBox(width: 10),
+                  const VerticalDivider(),
+                  const SizedBox(width: 10),
+                  ToggleButtons(
+                    isSelected: [!_isListView, _isListView],
+                    onPressed: (index) => setState(() => _isListView = index == 1),
+                    borderRadius: BorderRadius.circular(8),
+                    constraints: const BoxConstraints(minHeight: 36, minWidth: 44),
+                    children: const [
+                      Icon(Icons.calendar_view_week, size: 20),
+                      Icon(Icons.list, size: 20),
+                    ],
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () => _controller.loadAppointments(),
+                  )
                 ],
               ),
-              const SizedBox(width: 10),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () => _controller.loadAppointments(),
-              )
-            ],
+            ),
           ),
         ],
       ),
