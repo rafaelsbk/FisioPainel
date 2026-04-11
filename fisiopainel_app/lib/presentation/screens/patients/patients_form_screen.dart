@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../../domain/models/patient_model.dart';
 import '../../controllers/patient_controller.dart';
+import '../../widgets/cpf_formatter.dart';
 
 class PatientFormScreen extends StatefulWidget {
   final PatientController controller;
@@ -26,7 +30,20 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
   final _phoneCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _rgCtrl = TextEditingController();
+
+  final _cepCtrl = TextEditingController();
+  final _stateCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _neighborhoodCtrl = TextEditingController();
+  final _numberCtrl = TextEditingController();
+  final _complementCtrl = TextEditingController();
+
   bool _isActive = true;
+  bool _isCepLoading = false;
+
+  final _cpfFocus = FocusNode();
+  final _cepFocus = FocusNode();
+  String? _cpfError;
 
   @override
   void initState() {
@@ -35,11 +52,86 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       final p = widget.patientToEdit!;
       _nameCtrl.text = p.completeName;
       _emailCtrl.text = p.email ?? '';
-      _cpfCtrl.text = p.cpf ?? '';
+      _cpfCtrl.text = CpfInputFormatter.format(p.cpf ?? '');
       _phoneCtrl.text = p.phoneNumber ?? '';
       _addressCtrl.text = p.address ?? '';
       _rgCtrl.text = p.rg ?? '';
       _isActive = p.isActive;
+
+      _cepCtrl.text = p.cep ?? '';
+      _stateCtrl.text = p.estado ?? '';
+      _cityCtrl.text = p.cidade ?? '';
+      _neighborhoodCtrl.text = p.bairro ?? '';
+      _numberCtrl.text = p.numero ?? '';
+      _complementCtrl.text = p.complemento ?? '';
+    }
+
+    _cpfFocus.addListener(() {
+      if (!_cpfFocus.hasFocus) {
+        _checkDuplicateCpf();
+      }
+    });
+
+    _cepFocus.addListener(() {
+      if (!_cepFocus.hasFocus) {
+        _searchCep();
+      }
+    });
+  }
+
+  Future<void> _searchCep() async {
+    final cep = _cepCtrl.text.replaceAll(RegExp(r'\D'), '');
+    if (cep.length != 8) return;
+
+    setState(() => _isCepLoading = true);
+
+    try {
+      final response = await http.get(Uri.parse('https://viacep.com.br/ws/$cep/json/'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['erro'] == true) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('CEP não encontrado')),
+            );
+          }
+        } else {
+          setState(() {
+            _stateCtrl.text = data['uf'] ?? '';
+            _cityCtrl.text = data['localidade'] ?? '';
+            _neighborhoodCtrl.text = data['bairro'] ?? '';
+            _addressCtrl.text = data['logradouro'] ?? '';
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar CEP: $e');
+    } finally {
+      if (mounted) setState(() => _isCepLoading = false);
+    }
+  }
+
+  void _checkDuplicateCpf() {
+    final cpfRaw = _cpfCtrl.text.replaceAll(RegExp(r'\D'), '');
+    if (cpfRaw.isEmpty) {
+      setState(() => _cpfError = null);
+      return;
+    }
+
+    // Procura duplicados na lista do controller
+    PatientModel? duplicate;
+    for (var p in widget.controller.allPatients) {
+      final pCpfRaw = p.cpf?.replaceAll(RegExp(r'\D'), '') ?? '';
+      if (pCpfRaw == cpfRaw && p.id != widget.patientToEdit?.id) {
+        duplicate = p;
+        break;
+      }
+    }
+
+    if (duplicate != null) {
+      setState(() => _cpfError = 'CPF JÁ CADASTRADO, NO NOME ${duplicate!.completeName}');
+    } else {
+      setState(() => _cpfError = null);
     }
   }
 
@@ -51,10 +143,22 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     _phoneCtrl.dispose();
     _addressCtrl.dispose();
     _rgCtrl.dispose();
+    _cpfFocus.dispose();
+
+    _cepCtrl.dispose();
+    _stateCtrl.dispose();
+    _cityCtrl.dispose();
+    _neighborhoodCtrl.dispose();
+    _numberCtrl.dispose();
+    _complementCtrl.dispose();
+    _cepFocus.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
+    _checkDuplicateCpf();
+    if (_cpfError != null) return;
+
     if (_formKey.currentState!.validate()) {
       final newPatient = PatientModel(
         id: widget.patientToEdit?.id,
@@ -63,6 +167,12 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         cpf: _cpfCtrl.text,
         phoneNumber: _phoneCtrl.text,
         address: _addressCtrl.text,
+        cep: _cepCtrl.text,
+        estado: _stateCtrl.text,
+        cidade: _cityCtrl.text,
+        bairro: _neighborhoodCtrl.text,
+        numero: _numberCtrl.text,
+        complemento: _complementCtrl.text,
         rg: _rgCtrl.text,
         isActive: _isActive,
       );
@@ -130,9 +240,16 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _cpfCtrl,
-                        decoration: const InputDecoration(
+                        focusNode: _cpfFocus,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          CpfInputFormatter(),
+                        ],
+                        decoration: InputDecoration(
                           labelText: 'CPF',
-                          prefixIcon: Icon(Icons.credit_card_outlined),
+                          prefixIcon: const Icon(Icons.credit_card_outlined),
+                          errorText: _cpfError,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -167,14 +284,83 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                         keyboardType: TextInputType.phone,
                       ),
                       const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: _cepCtrl,
+                              focusNode: _cepFocus,
+                              decoration: InputDecoration(
+                                labelText: 'CEP',
+                                prefixIcon: const Icon(Icons.map_outlined),
+                                suffixIcon: _isCepLoading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: Padding(
+                                            padding: EdgeInsets.all(12),
+                                            child: CircularProgressIndicator(strokeWidth: 2)))
+                                    : null,
+                              ),
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              onChanged: (v) {
+                                if (v.length == 8) _searchCep();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _stateCtrl,
+                              decoration: const InputDecoration(labelText: 'UF'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _cityCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Cidade',
+                          prefixIcon: Icon(Icons.location_city_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _neighborhoodCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Bairro',
+                          prefixIcon: Icon(Icons.holiday_village_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _addressCtrl,
-                        maxLines: 2,
                         decoration: const InputDecoration(
-                          labelText: 'Endereço Completo',
+                          labelText: 'Logradouro (Rua/Avenida)',
                           prefixIcon: Icon(Icons.location_on_outlined),
-                          alignLabelWithHint: true,
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _numberCtrl,
+                              decoration: const InputDecoration(labelText: 'Número'),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: _complementCtrl,
+                              decoration: const InputDecoration(labelText: 'Complemento'),
+                            ),
+                          ),
+                        ],
                       ),
 
                       const SizedBox(height: 32),

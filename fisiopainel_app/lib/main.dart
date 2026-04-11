@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'presentation/screens/home_screen.dart';
+import 'presentation/screens/splash_screen.dart';
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/base_layout_screen.dart';
 import 'presentation/widgets/auth_guard.dart';
@@ -97,7 +97,7 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const HomeScreen(),
+        '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const AuthGuard(child: BaseLayoutScreen()),
       },
