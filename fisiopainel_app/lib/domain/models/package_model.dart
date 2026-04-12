@@ -12,10 +12,11 @@ class PackageModel {
   final String status; // 'status'
   final DateTime? paymentDate; // 'data_pagamento'
   final DateTime? startDate; // 'data_inicio'
+  final String? horarioAtendimento; // 'horario_atendimento' (Ex: "08:00:00")
   final String? weekDays; // 'dias_semana' (Ex: "0,2,4")
   final int? renovatedFrom; // 'renovado_de'
 
-  // Campos auxiliares para exibição na lista
+  // Campos auxiliares para exibiÃ§Ã£o na lista
   final String? patientName;
   final String? professionalName;
   final String? serviceName;
@@ -35,6 +36,7 @@ class PackageModel {
     this.status = 'ATIVO',
     this.paymentDate,
     this.startDate,
+    this.horarioAtendimento,
     this.weekDays,
     this.renovatedFrom,
     this.patientName,

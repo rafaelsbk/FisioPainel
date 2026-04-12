@@ -1,5 +1,12 @@
 import 'audit_fields.dart';
 
+class PhoneModel {
+  final int? id;
+  final String number;
+
+  PhoneModel({this.id, required this.number});
+}
+
 class PatientModel {
   final int? id; // Pode ser nulo na criação
   final String completeName; // No Django é complete_name
@@ -11,7 +18,8 @@ class PatientModel {
   final String? numero;
   final String? complemento;
   final String? email;
-  final String? phoneNumber; // No Django é numero_telefone
+  final String? phoneNumber; // Mantemos por compatibilidade, mas o foco será na lista
+  final List<PhoneModel>? phones;
   final String? cpf;
   final String? rg;
   final bool isActive;
@@ -30,6 +38,7 @@ class PatientModel {
     this.complemento,
     this.email,
     this.phoneNumber,
+    this.phones,
     this.cpf,
     this.rg,
     this.isActive = true,

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento, UserRole
+from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento, UserRole, TelefonePaciente
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -109,9 +109,15 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+class TelefonePacienteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TelefonePaciente
+        fields = ['id', 'numero']
+
 class PacienteSerializer(serializers.ModelSerializer):
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
+    telefones = TelefonePacienteSerializer(many=True, required=False)
 
     class Meta:
         model = Paciente
@@ -119,8 +125,34 @@ class PacienteSerializer(serializers.ModelSerializer):
             'id', 'complete_name', 'address', 'cep', 'estado', 'cidade',
             'bairro', 'numero', 'complemento', 'email', 'numero_telefone',
             'cpf', 'rg', 'is_active', 'profissional_responsavel',
-            'data_criacao', 'data_ultima_edicao', 'criado_por_nome', 'editado_por_nome'
+            'data_criacao', 'data_ultima_edicao', 'criado_por_nome', 'editado_por_nome',
+            'telefones'
         ]
+
+    def create(self, validated_data):
+        telefones_data = validated_data.pop('telefones', [])
+        paciente = Paciente.objects.create(**validated_data)
+        for telefone_data in telefones_data:
+            TelefonePaciente.objects.create(paciente=paciente, **telefone_data)
+        return paciente
+
+    def update(self, instance, validated_data):
+        telefones_data = validated_data.pop('telefones', None)
+        
+        # Update Paciente fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update Telefones if provided
+        if telefones_data is not None:
+            # Simple approach: replace all phones
+            instance.telefones.all().delete()
+            for telefone_data in telefones_data:
+                TelefonePaciente.objects.create(paciente=instance, **telefone_data)
+        
+        return instance
+
 class TipoAtendimentoSerializer(serializers.ModelSerializer):
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
@@ -139,13 +171,12 @@ class PacoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pacote
         fields = [
-            'id', 'paciente', 'profissional', 'tipo_atendimento', 
-            'quantidade_total', 'valor_total', 'valor_por_sessao', 
-            'valor_pago', 'status', 'data_pagamento', 'data_inicio', 'dias_semana',
+            'id', 'paciente', 'profissional', 'tipo_atendimento',
+            'quantidade_total', 'valor_total', 'valor_por_sessao',
+            'valor_pago', 'status', 'data_pagamento', 'data_inicio', 'horario_atendimento', 'dias_semana',
             'renovado_de', 'criado_por_nome', 'editado_por_nome',
             'nome_profissional', 'nome_paciente', 'nome_tipo_atendimento'
         ]
-
     def validate(self, data):
         # Validação apenas na atualização (quando self.instance existe)
         if self.instance:

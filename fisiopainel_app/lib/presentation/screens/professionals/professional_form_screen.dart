@@ -4,6 +4,7 @@ import '../../../domain/models/professional_model.dart';
 import '../../controllers/professional_controller.dart';
 import '../../../domain/models/user_role_model.dart';
 import '../../widgets/cpf_formatter.dart';
+import '../../widgets/phone_formatter.dart';
 
 class ProfessionalFormScreen extends StatefulWidget {
   final ProfessionalController controller;
@@ -57,7 +58,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
       _firstNameCtrl.text = p.firstName;
       _lastNameCtrl.text = p.lastName;
       _emailCtrl.text = p.email;
-      _phoneCtrl.text = p.phoneNumber;
+      _phoneCtrl.text = PhoneInputFormatter.format(p.phoneNumber);
       _cpfCtrl.text = CpfInputFormatter.format(p.cpf);
       _crefitoCtrl.text = p.crefito;
       _percentualCtrl.text = p.percentualRepasse?.toString() ?? '';
@@ -103,7 +104,28 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
     }
 
     if (duplicate != null) {
-      setState(() => _cpfError = 'CPF JÁ CADASTRADO, NO NOME ${duplicate!.fullName}');
+      final errorMsg = 'CPF JÁ CADASTRADO, NO NOME ${duplicate.fullName}';
+      setState(() => _cpfError = errorMsg);
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              SizedBox(width: 10),
+              Text('CPF Duplicado'),
+            ],
+          ),
+          content: Text('Atenção: Este CPF já pertence ao profissional "${duplicate!.fullName}".'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('ENTENDI'),
+            ),
+          ],
+        ),
+      );
     } else {
       setState(() => _cpfError = null);
     }
@@ -140,18 +162,18 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
         return;
       }
 
-      double? percentualRepasse = _repasseTipo == RepasseTipo.porcentagem 
-          ? double.tryParse(_percentualCtrl.text.replaceAll(',', '.')) 
+      double? percentualRepasse = _repasseTipo == RepasseTipo.porcentagem
+          ? double.tryParse(_percentualCtrl.text.replaceAll(',', '.'))
           : null;
-      double? valorRepasseFixo = _repasseTipo == RepasseTipo.fixo 
-          ? double.tryParse(_valorRepasseFixoCtrl.text.replaceAll(',', '.')) 
+      double? valorRepasseFixo = _repasseTipo == RepasseTipo.fixo
+          ? double.tryParse(_valorRepasseFixoCtrl.text.replaceAll(',', '.'))
           : null;
 
-      double? percentualReposicao = _taxaReposicaoTipo == TaxaReposicaoTipo.porcentagem 
-          ? double.tryParse(_percentualTaxaReposicaoCtrl.text.replaceAll(',', '.')) 
+      double? percentualReposicao = _taxaReposicaoTipo == TaxaReposicaoTipo.porcentagem
+          ? double.tryParse(_percentualTaxaReposicaoCtrl.text.replaceAll(',', '.'))
           : null;
-      double? valorReposicaoFixo = _taxaReposicaoTipo == TaxaReposicaoTipo.fixo 
-          ? double.tryParse(_valorTaxaReposicaoFixoCtrl.text.replaceAll(',', '.')) 
+      double? valorReposicaoFixo = _taxaReposicaoTipo == TaxaReposicaoTipo.fixo
+          ? double.tryParse(_valorTaxaReposicaoFixoCtrl.text.replaceAll(',', '.'))
           : null;
 
       final newProfessional = ProfessionalModel(
@@ -327,6 +349,10 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                         controller: _phoneCtrl,
                         decoration: const InputDecoration(labelText: 'Telefone', prefixIcon: Icon(Icons.phone_outlined)),
                         keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          PhoneInputFormatter(),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       TextFormField(

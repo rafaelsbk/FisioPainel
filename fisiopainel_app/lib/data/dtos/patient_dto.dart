@@ -16,6 +16,9 @@ class PatientDto {
       complemento: json['complemento'],
       email: json['email'],
       phoneNumber: json['numero_telefone'], // Mapeamento importante
+      phones: (json['telefones'] as List?)
+          ?.map((e) => PhoneModel(id: e['id'], number: e['numero']))
+          .toList(),
       cpf: json['cpf'],
       rg: json['rg'],
       isActive: json['is_active'] ?? true,
@@ -40,6 +43,7 @@ class PatientDto {
       "cpf": model.cpf,
       "rg": model.rg,
       "is_active": model.isActive,
+      "telefones": model.phones?.map((p) => {"numero": p.number}).toList(),
     };
     if (model.profissionalResponsavelId != null) {
       data["profissional_responsavel"] = model.profissionalResponsavelId;
