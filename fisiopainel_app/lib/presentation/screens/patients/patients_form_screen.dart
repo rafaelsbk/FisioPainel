@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../../../domain/models/patient_model.dart';
 import '../../controllers/patient_controller.dart';
 import '../../widgets/cpf_formatter.dart';
+import '../../widgets/phone_formatter.dart';
 
 class PatientFormScreen extends StatefulWidget {
   final PatientController controller;
@@ -27,7 +28,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _cpfCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
+  final List<TextEditingController> _phoneCtrls = [];
   final _addressCtrl = TextEditingController();
   final _rgCtrl = TextEditingController();
 
@@ -53,7 +54,16 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       _nameCtrl.text = p.completeName;
       _emailCtrl.text = p.email ?? '';
       _cpfCtrl.text = CpfInputFormatter.format(p.cpf ?? '');
-      _phoneCtrl.text = p.phoneNumber ?? '';
+      
+      // Carregar telefones da lista ou do campo antigo
+      if (p.phones != null && p.phones!.isNotEmpty) {
+        for (var phone in p.phones!) {
+          _phoneCtrls.add(TextEditingController(text: PhoneInputFormatter.format(phone.number)));
+        }
+      } else if (p.phoneNumber != null && p.phoneNumber!.isNotEmpty) {
+        _phoneCtrls.add(TextEditingController(text: PhoneInputFormatter.format(p.phoneNumber!)));
+      }
+
       _addressCtrl.text = p.address ?? '';
       _rgCtrl.text = p.rg ?? '';
       _isActive = p.isActive;
@@ -64,6 +74,11 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       _neighborhoodCtrl.text = p.bairro ?? '';
       _numberCtrl.text = p.numero ?? '';
       _complementCtrl.text = p.complemento ?? '';
+    }
+
+    // Garantir pelo menos um campo de telefone
+    if (_phoneCtrls.isEmpty) {
+      _phoneCtrls.add(TextEditingController());
     }
 
     _cpfFocus.addListener(() {
@@ -77,6 +92,21 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         _searchCep();
       }
     });
+  }
+
+  void _addPhoneField() {
+    setState(() {
+      _phoneCtrls.add(TextEditingController());
+    });
+  }
+
+  void _removePhoneField(int index) {
+    if (_phoneCtrls.length > 1) {
+      setState(() {
+        _phoneCtrls[index].dispose();
+        _phoneCtrls.removeAt(index);
+      });
+    }
   }
 
   Future<void> _searchCep() async {
@@ -129,7 +159,29 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     }
 
     if (duplicate != null) {
-      setState(() => _cpfError = 'CPF JÁ CADASTRADO, NO NOME ${duplicate!.completeName}');
+      final errorMsg = 'CPF JÁ CADASTRADO, NO NOME ${duplicate.completeName}';
+      setState(() => _cpfError = errorMsg);
+      
+      // Mostrar Modal
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              SizedBox(width: 10),
+              Text('CPF Duplicado'),
+            ],
+          ),
+          content: Text('Atenção: Este CPF já pertence ao paciente "${duplicate!.completeName}".'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('ENTENDI'),
+            ),
+          ],
+        ),
+      );
     } else {
       setState(() => _cpfError = null);
     }
@@ -140,7 +192,9 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _cpfCtrl.dispose();
-    _phoneCtrl.dispose();
+    for (var ctrl in _phoneCtrls) {
+      ctrl.dispose();
+    }
     _addressCtrl.dispose();
     _rgCtrl.dispose();
     _cpfFocus.dispose();
@@ -165,7 +219,11 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         completeName: _nameCtrl.text,
         email: _emailCtrl.text,
         cpf: _cpfCtrl.text,
-        phoneNumber: _phoneCtrl.text,
+        phoneNumber: _phoneCtrls.isNotEmpty ? _phoneCtrls[0].text : '',
+        phones: _phoneCtrls
+            .where((c) => c.text.isNotEmpty)
+            .map((c) => PhoneModel(number: c.text))
+            .toList(),
         address: _addressCtrl.text,
         cep: _cepCtrl.text,
         estado: _stateCtrl.text,
@@ -231,11 +289,18 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _nameCtrl,
+                        textCapitalization: TextCapitalization.words,
                         decoration: const InputDecoration(
                           labelText: 'Nome Completo *',
                           prefixIcon: Icon(Icons.badge_outlined),
                         ),
-                        validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Obrigatório';
+                          if (v.isNotEmpty && v[0] != v[0].toUpperCase()) {
+                            return 'A primeira letra deve ser maiúscula';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -275,14 +340,50 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                         keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _phoneCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Telefone',
-                          prefixIcon: Icon(Icons.phone_outlined),
-                        ),
-                        keyboardType: TextInputType.phone,
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              "Telefones *",
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _addPhoneField,
+                            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF3B82F6)),
+                            tooltip: "Adicionar Telefone",
+                          ),
+                        ],
                       ),
+                      ...List.generate(_phoneCtrls.length, (index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _phoneCtrls[index],
+                                  decoration: InputDecoration(
+                                    labelText: 'Telefone ${index + 1}',
+                                    prefixIcon: const Icon(Icons.phone_outlined),
+                                  ),
+                                  keyboardType: TextInputType.phone,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    PhoneInputFormatter(),
+                                  ],
+                                  validator: (v) => (index == 0 && (v == null || v.isEmpty)) ? 'Obrigatório' : null,
+                                ),
+                              ),
+                              if (_phoneCtrls.length > 1)
+                                IconButton(
+                                  onPressed: () => _removePhoneField(index),
+                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
                       const SizedBox(height: 16),
                       Row(
                         children: [

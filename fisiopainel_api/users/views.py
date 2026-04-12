@@ -177,15 +177,15 @@ class PacoteViewSet(viewsets.ModelViewSet):
                 count = 0
                 current_date = pacote.data_inicio
                 
-                # Horário padrão para automação (pode ser expandido futuramente)
-                default_time = time(8, 0) 
+                # Horário para automação
+                session_time = pacote.horario_atendimento or time(8, 0)
 
                 while count < pacote.quantidade_total:
                     if current_date.weekday() in selected_days:
                         Agendamento.objects.create(
                             pacote=pacote,
                             profissional=profissional,
-                            data_hora=datetime.combine(current_date, default_time),
+                            data_hora=datetime.combine(current_date, session_time),
                             status=Agendamento.Status.AGENDADO,
                             criado_por=self.request.user
                         )
@@ -238,14 +238,15 @@ class PacoteViewSet(viewsets.ModelViewSet):
                             current_date = pacote.data_inicio
                         
                         count = 0
-                        default_time = time(8, 0)
-                        
+                        # Horário para automação
+                        session_time = pacote.horario_atendimento or time(8, 0)
+
                         while count < aumento_count:
                             if current_date.weekday() in selected_days:
                                 Agendamento.objects.create(
                                     pacote=pacote,
                                     profissional=pacote.profissional,
-                                    data_hora=datetime.combine(current_date, default_time),
+                                    data_hora=datetime.combine(current_date, session_time),
                                     status=Agendamento.Status.AGENDADO,
                                     criado_por=self.request.user
                                 )

@@ -107,10 +107,6 @@ class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
           _selectedTime!.hour,
           _selectedTime!.minute,
         );
-      } else if (_selectedDate != null) {
-        // Se tiver data mas não hora, assume 00:00 ou mantém se já tinha?
-        // Melhor exigir ambos ou nenhum para "agendado".
-        // Se status for ABERTO, pode ser null.
       }
 
       // Se mudar para AGENDADO, exige data e hora
@@ -179,7 +175,7 @@ class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
                 decoration: const InputDecoration(labelText: 'Profissional'),
-                initialValue: _selectedProfessionalId,
+                value: _selectedProfessionalId,
                 items: _controller.professionalsList.map((p) {
                   return DropdownMenuItem(value: p.id, child: Text(p.fullName));
                 }).toList(),
@@ -189,7 +185,7 @@ class _EditAppointmentDialogState extends State<EditAppointmentDialog> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Status'),
-                initialValue: _selectedStatus,
+                value: _selectedStatus,
                 items: _statusOptions.map((s) {
                   return DropdownMenuItem(value: s, child: Text(s));
                 }).toList(),

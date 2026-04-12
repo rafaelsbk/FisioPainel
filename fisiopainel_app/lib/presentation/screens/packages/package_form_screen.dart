@@ -28,12 +28,14 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   final _sessionValueCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
   final _startDateCtrl = TextEditingController();
+  final _timeCtrl = TextEditingController();
 
   int? _selectedPatientId;
   int? _selectedProfessionalId;
   int? _selectedTypeId;
   DateTime? _selectedDate;
   DateTime? _selectedStartDate;
+  TimeOfDay? _selectedTime;
   String _status = "ATIVO";
   
   // 0=Segunda, 6=Domingo (alinhado com o weekday do Dart/Python)
@@ -120,6 +122,19 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
     }
   }
 
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? const TimeOfDay(hour: 8, minute: 0),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedTime = picked;
+        _timeCtrl.text = picked.format(context);
+      });
+    }
+  }
+
   Future<void> _submit() async {
     // Verificar se o paciente está ativo antes de submeter
     final selectedPatient = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId);
@@ -146,6 +161,13 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
     }
 
     if (_formKey.currentState!.validate()) {
+      String? formattedTime;
+      if (_selectedTime != null) {
+        final hour = _selectedTime!.hour.toString().padLeft(2, '0');
+        final minute = _selectedTime!.minute.toString().padLeft(2, '0');
+        formattedTime = "$hour:$minute";
+      }
+
       final packageData = PackageModel(
         id: _isEditing ? widget.package!.id : null,
         patientId: _selectedPatientId!,
@@ -157,6 +179,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
         status: _status,
         paymentDate: _selectedDate,
         startDate: _selectedStartDate,
+        horarioAtendimento: formattedTime,
         weekDays: _selectedWeekDays.isEmpty ? null : _selectedWeekDays.join(','),
         renovatedFrom: widget.package?.id,
       );
@@ -420,9 +443,21 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                       suffixIcon: Icon(Icons.edit_calendar),
                     ),
                     onTap: _pickStartDate,
-                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe a data de início' : null,
-                  ),
-                  const SizedBox(height: 15),
+                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe a data de inÃ­cio' : null,
+                    ),
+                    const SizedBox(height: 15),
+                    TextFormField(
+                    controller: _timeCtrl,
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'HorÃ¡rio do Atendimento *',
+                      prefixIcon: Icon(Icons.access_time),
+                      suffixIcon: Icon(Icons.edit_calendar),
+                    ),
+                    onTap: _pickTime,
+                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe o horÃ¡rio' : null,
+                    ),
+                    const SizedBox(height: 15),
                   const Text(
                     "Dias da Semana para Atendimento:",
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey),

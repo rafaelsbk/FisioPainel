@@ -64,6 +64,13 @@ class Paciente(AuditModel):
     def __str__(self):
         return self.complete_name
 
+class TelefonePaciente(AuditModel):
+    paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='telefones')
+    numero = models.CharField(max_length=20)
+
+    def __str__(self):
+        return f"{self.numero} ({self.paciente.complete_name})"
+
 class TipoAtendimento(AuditModel):
     nome_atendimento = models.CharField(max_length=100)
     ativo = models.BooleanField(default=True)
@@ -90,6 +97,7 @@ class Pacote(AuditModel):
     
     # Scheduling fields
     data_inicio = models.DateField(null=True, blank=True)
+    horario_atendimento = models.TimeField(null=True, blank=True)
     dias_semana = models.CharField(max_length=50, blank=True, null=True, help_text="Ex: 0,2,4 (seg, qua, sex)")
 
     def __str__(self):

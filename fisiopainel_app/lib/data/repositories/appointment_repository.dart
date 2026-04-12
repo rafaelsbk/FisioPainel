@@ -95,12 +95,12 @@ class AppointmentRepository {
     final body = jsonEncode(AppointmentDto.toJson(appointment));
     final url = Uri.parse('$apiBase/agendamentos/${appointment.id}/');
 
-    var response = await http.put(url, headers: headers, body: body);
+    var response = await http.patch(url, headers: headers, body: body);
 
     if (response.statusCode == 401) {
       await AuthRepository().tryAutoLogin();
       headers = await _getHeaders();
-      response = await http.put(url, headers: headers, body: body);
+      response = await http.patch(url, headers: headers, body: body);
     }
 
     if (response.statusCode == 200) {

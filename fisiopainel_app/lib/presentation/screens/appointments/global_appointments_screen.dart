@@ -276,59 +276,67 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
                           )).toList(),
                         ),
                         // Agendamentos Reais
-                        ...hours.expand((hour) {
+                        ...hours.map((hour) {
                           final appts = _getAppointmentsForSlot(day, hour);
-                          return appts.map((appt) => Positioned(
+                          if (appts.isEmpty) return const SizedBox.shrink();
+
+                          return Positioned(
                             top: (hour - 6) * 80.0 + 4,
                             left: 2,
                             right: 2,
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => AppointmentDetailScreen(appointment: appt),
-                                  ),
-                                ).then((_) => _controller.loadAppointments());
-                              },
-                              child: Container(
-                                height: 72,
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: _getStatusColor(appt.status).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: _getStatusColor(appt.status).withOpacity(0.3)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      appt.patientName ?? "S/ Paciente",
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: _getStatusColor(appt.status),
+                            height: 72,
+                            child: Row(
+                              children: appts.map((appt) => Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 1.0),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => AppointmentDetailScreen(appointment: appt),
+                                        ),
+                                      ).then((_) => _controller.loadAppointments());
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: _getStatusColor(appt.status).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: _getStatusColor(appt.status).withOpacity(0.3)),     
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            appt.patientName ?? "S/ Paciente",
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: _getStatusColor(appt.status),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            appt.professionalName ?? "S/ Prof.",
+                                            style: TextStyle(fontSize: 9, color: Colors.grey[700]),
+                                            maxLines: 1,
+                                          ),
+                                          Text(
+                                            appt.status,
+                                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.w500, color: _getStatusColor(appt.status)),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    const Spacer(),
-                                    Text(
-                                      appt.professionalName ?? "S/ Prof.",
-                                      style: TextStyle(fontSize: 9, color: Colors.grey[700]),
-                                      maxLines: 1,
-                                    ),
-                                    Text(
-                                      appt.status,
-                                      style: TextStyle(fontSize: 8, fontWeight: FontWeight.w500, color: _getStatusColor(appt.status)),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                              )).toList(),
                             ),
-                          ));
-                        }).toList(),
-                      ],
+                          );
+                        }).toList(),                      ],
                     ),
                   )).toList(),
                 ],

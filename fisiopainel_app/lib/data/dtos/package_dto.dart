@@ -21,6 +21,7 @@ class PackageDto {
       startDate: (json['data_inicio'] != null && json['data_inicio'].toString().isNotEmpty)
           ? DateTime.parse(json['data_inicio'].toString())
           : null,
+      horarioAtendimento: json['horario_atendimento'],
       weekDays: json['dias_semana'],
       renovatedFrom: json['renovado_de'],
       patientName: json['nome_paciente'],
@@ -42,6 +43,7 @@ class PackageDto {
       "status": model.status,
       "data_pagamento": model.paymentDate?.toIso8601String(),
       "data_inicio": model.startDate != null ? formatter.format(model.startDate!) : null,
+      "horario_atendimento": model.horarioAtendimento,
       "dias_semana": model.weekDays,
       "renovado_de": model.renovatedFrom,
     };
