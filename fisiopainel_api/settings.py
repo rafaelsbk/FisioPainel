@@ -9,11 +9,13 @@ BASE_DIR = Path(__file__).resolve().parent
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 # 1. Certifique-se de que o Host está listado corretamente
-ALLOWED_HOSTS = ['genesis1.vps-kinghost.net', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['genesis1.vps-kinghost.net', 'localhost', '127.0.0.1', '*']
 
 # 2. Configurações cruciais para HTTPS e Proxy
 # Informa ao Django para confiar no HTTPS vindo do Nginx
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 
 # Configurações de cookies seguros para evitar 403 em operações POST/Login
 SESSION_COOKIE_SECURE = True
@@ -24,10 +26,24 @@ CSRF_TRUSTED_ORIGINS = ['https://genesis1.vps-kinghost.net']
 
 # 3. Mantenha o CORS liberado para o seu Front-end
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
-# Redireciona trÃ¡fego HTTP para HTTPS (Ative apenas quando o SSL estiver funcional no Nginx)
-SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=True, cast=bool)
+# Redireciona tráfego HTTP para HTTPS (Ative apenas quando o SSL estiver funcional no Nginx)
+# Em alguns casos de Proxy, isso pode causar 403 ou loops de redirecionamento se o Nginx não passar os headers corretamente.
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
 # --------------------------------------------
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -39,7 +55,7 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'rest_framework',
     'rest_framework_simplejwt',
-    'corsheaders', # JÃ¡ presente nos seus requisitos
+    'corsheaders', # Já presente nos seus requisitos
     'django_extensions',
 ]
 
@@ -54,14 +70,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# --- CONFIGURAÃ‡ÃƒO DE CORS ---
-# Como vocÃª estÃ¡ tendo erro de CORS com HTTPS, verifique estas definiÃ§Ãµes:
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
-
-# Se preferir restringir (Recomendado para produÃ§Ã£o):
-# CORS_ALLOWED_ORIGINS = [
-#     "https://seu-front-end.com",
-# ]
+# --- CONFIGURAÇÃO DE CORS (Já definida acima) ---
 # ----------------------------
 
 ROOT_URLCONF = 'urls'
@@ -95,7 +104,7 @@ DATABASES = {
     }
 }
 
-# ConfiguraÃ§Ãµes JWT (Baseado no seu serializers.py e settings anterior)
+# Configurações JWT (Baseado no seu serializers.py e settings anterior)
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
