@@ -7,7 +7,7 @@ class AppointmentDto {
       id: json['id'],
       packageId: json['pacote'],
       dateTime: (json['data_hora'] != null && json['data_hora'].toString().isNotEmpty) 
-          ? DateTime.parse(json['data_hora'].toString()) 
+          ? DateTime.parse(json['data_hora'].toString()).toLocal() 
           : null,
       status: json['status'],
       professionalId: json['profissional'],

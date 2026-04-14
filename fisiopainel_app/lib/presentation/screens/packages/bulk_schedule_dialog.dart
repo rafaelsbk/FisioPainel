@@ -185,7 +185,6 @@ class _BulkScheduleDialogState extends State<BulkScheduleDialog> {
             await requestRepo.createRequest(request);
             requestCount++;
           } catch (e) {
-            print("Erro ao criar solicitação: $e");
           }
         } else {
           successCount++;

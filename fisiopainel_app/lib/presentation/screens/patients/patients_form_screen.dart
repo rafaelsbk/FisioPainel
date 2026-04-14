@@ -135,7 +135,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Erro ao buscar CEP: $e');
     } finally {
       if (mounted) setState(() => _isCepLoading = false);
     }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../domain/models/package_model.dart';
+import '../../../domain/models/patient_model.dart';
 import '../../controllers/package_controller.dart';
+import '../../widgets/currency_formatter.dart';
 
 class PackageFormScreen extends StatefulWidget {
   final PackageController controller;
@@ -53,8 +56,10 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       _selectedProfessionalId = pkg.professionalId;
       _selectedTypeId = pkg.serviceTypeId;
       _qtdCtrl.text = pkg.quantity.toString();
-      _totalCtrl.text = pkg.totalValue.toStringAsFixed(2);
-      _sessionValueCtrl.text = pkg.sessionValue.toStringAsFixed(2);
+      
+      final nf = NumberFormat.currency(locale: 'pt_BR', symbol: '');
+      _totalCtrl.text = nf.format(pkg.totalValue).trim();
+      _sessionValueCtrl.text = nf.format(pkg.sessionValue).trim();
       
       if (widget.isRenewal) {
         _status = "ATIVO";
@@ -71,6 +76,13 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
         _selectedStartDate = pkg.startDate;
         _startDateCtrl.text = DateFormat('dd/MM/yyyy').format(pkg.startDate!);
       }
+      if (pkg.horarioAtendimento != null && pkg.horarioAtendimento!.isNotEmpty) {
+        _timeCtrl.text = pkg.horarioAtendimento!.substring(0, 5); // Take only HH:mm
+        final parts = pkg.horarioAtendimento!.split(':');
+        if (parts.length >= 2) {
+          _selectedTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+        }
+      }
       if (pkg.weekDays != null && pkg.weekDays!.isNotEmpty) {
         _selectedWeekDays.addAll(pkg.weekDays!.split(',').map((e) => int.parse(e)));
       }
@@ -78,11 +90,15 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   }
 
   void _calculateSessionValue() {
-    final qtd = double.tryParse(_qtdCtrl.text) ?? 0;
-    final total = double.tryParse(_totalCtrl.text) ?? 0;
+    final qtdText = _qtdCtrl.text;
+    final qtd = double.tryParse(qtdText) ?? 0;
+    
+    final totalStr = _totalCtrl.text.replaceAll('.', '').replaceAll(',', '.');
+    final total = double.tryParse(totalStr) ?? 0;
+    
     if (qtd > 0 && total > 0) {
       final sessionVal = total / qtd;
-      _sessionValueCtrl.text = sessionVal.toStringAsFixed(2);
+      _sessionValueCtrl.text = NumberFormat.currency(locale: 'pt_BR', symbol: '').format(sessionVal).trim();
     }
   }
 
@@ -168,14 +184,17 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
         formattedTime = "$hour:$minute";
       }
 
+      final totalStr = _totalCtrl.text.replaceAll('.', '').replaceAll(',', '.');
+      final sessionStr = _sessionValueCtrl.text.replaceAll('.', '').replaceAll(',', '.');
+
       final packageData = PackageModel(
         id: _isEditing ? widget.package!.id : null,
         patientId: _selectedPatientId!,
         professionalId: _selectedProfessionalId!,
         serviceTypeId: _selectedTypeId!,
         quantity: int.parse(_qtdCtrl.text),
-        totalValue: double.parse(_totalCtrl.text),
-        sessionValue: double.parse(_sessionValueCtrl.text),
+        totalValue: double.parse(totalStr),
+        sessionValue: double.parse(sessionStr),
         status: _status,
         paymentDate: _selectedDate,
         startDate: _selectedStartDate,
@@ -264,17 +283,86 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                 const _SectionTitle(title: 'Informações do Pacote', icon: Icons.info_outline),
                 const SizedBox(height: 15),
                 
-                DropdownButtonFormField<int>(
-                  decoration: const InputDecoration(
-                    labelText: 'Paciente *',
-                    prefixIcon: Icon(Icons.person_outline),
+                LayoutBuilder(
+                  builder: (context, constraints) => Autocomplete<PatientModel>(
+                    displayStringForOption: (PatientModel option) => option.completeName,
+                    initialValue: _selectedPatientId != null
+                        ? TextEditingValue(
+                            text: widget.controller.patientsList
+                                .firstWhere((p) => p.id == _selectedPatientId)
+                                .completeName)
+                        : null,
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text.isEmpty) {
+                        return const Iterable<PatientModel>.empty();
+                      }
+                      return widget.controller.patientsList.where((PatientModel option) {
+                        return option.completeName
+                            .toLowerCase()
+                            .contains(textEditingValue.text.toLowerCase());
+                      });
+                    },
+                    onSelected: (PatientModel selection) {
+                      setState(() {
+                        _selectedPatientId = selection.id;
+                      });
+                    },
+                    fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                      return TextFormField(
+                        controller: textEditingController,
+                        focusNode: focusNode,
+                        decoration: const InputDecoration(
+                          labelText: 'Paciente *',
+                          prefixIcon: Icon(Icons.person_outline),
+                          suffixIcon: Icon(Icons.search),
+                        ),
+                        onChanged: (val) {
+                          if (val.isEmpty) {
+                            setState(() => _selectedPatientId = null);
+                          }
+                        },
+                        validator: (v) {
+                          if (_selectedPatientId == null || v == null || v.isEmpty) {
+                            return 'Selecione um paciente';
+                          }
+                          final selectedPatient = widget.controller.patientsList.firstWhere(
+                            (p) => p.id == _selectedPatientId,
+                            orElse: () => PatientModel(completeName: '', isActive: false),
+                          );
+                          if (v != selectedPatient.completeName) {
+                            return 'Selecione um paciente da lista';
+                          }
+                          return null;
+                        },
+                      );
+                    },
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4.0,
+                          child: SizedBox(
+                            width: constraints.maxWidth,
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              itemCount: options.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                final PatientModel option = options.elementAt(index);
+                                return ListTile(
+                                  title: Text(option.completeName),
+                                  subtitle: option.isActive 
+                                      ? null 
+                                      : const Text('Inativo', style: TextStyle(color: Colors.red, fontSize: 11)),
+                                  onTap: () => onSelected(option),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  value: _selectedPatientId,
-                  items: widget.controller.patientsList
-                      .map((p) => DropdownMenuItem(value: p.id, child: Text(p.completeName)))
-                      .toList(),
-                  onChanged: (val) => setState(() => _selectedPatientId = val),
-                  validator: (v) => v == null ? 'Selecione um paciente' : null,
                 ),
                 if (_selectedPatientId != null)
                   Builder(builder: (context) {
@@ -387,7 +475,11 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                 ),
                 TextFormField(
                   controller: _totalCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    CurrencyInputFormatter(),
+                  ],
                   decoration: const InputDecoration(
                     labelText: 'Valor Total do Pacote (R\$) *',
                     prefixIcon: Icon(Icons.monetization_on_outlined),
@@ -400,7 +492,8 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                 ),
                 if (_isEditing && widget.package?.paymentDate != null)
                   Builder(builder: (context) {
-                    final novoTotal = double.tryParse(_totalCtrl.text.replaceAll(',', '.')) ?? 0;
+                    final novoTotalStr = _totalCtrl.text.replaceAll('.', '').replaceAll(',', '.');
+                    final novoTotal = double.tryParse(novoTotalStr) ?? 0;
                     final originalTotal = widget.package?.totalValue ?? 0;
 
                     if (novoTotal > originalTotal) {
@@ -443,21 +536,21 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                       suffixIcon: Icon(Icons.edit_calendar),
                     ),
                     onTap: _pickStartDate,
-                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe a data de inÃ­cio' : null,
-                    ),
-                    const SizedBox(height: 15),
-                    TextFormField(
+                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe a data de início' : null,
+                  ),
+                  const SizedBox(height: 15),
+                  TextFormField(
                     controller: _timeCtrl,
                     readOnly: true,
                     decoration: const InputDecoration(
-                      labelText: 'HorÃ¡rio do Atendimento *',
+                      labelText: 'Horário do Atendimento *',
                       prefixIcon: Icon(Icons.access_time),
                       suffixIcon: Icon(Icons.edit_calendar),
                     ),
                     onTap: _pickTime,
-                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe o horÃ¡rio' : null,
-                    ),
-                    const SizedBox(height: 15),
+                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe o horário' : null,
+                  ),
+                  const SizedBox(height: 15),
                   const Text(
                     "Dias da Semana para Atendimento:",
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey),

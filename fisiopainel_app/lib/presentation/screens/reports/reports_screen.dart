@@ -78,7 +78,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         }
       }
     } catch (e) {
-      print("Erro ao carregar profissionais: $e");
     }
   }
 
@@ -325,7 +324,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         else
           Column(
             children: finDetails.map((item) {
-              final date = DateTime.parse(item['data_hora']);
+              final date = DateTime.parse(item['data_hora']).toLocal();
               return Card(
                 elevation: 2,
                 margin: const EdgeInsets.symmetric(vertical: 6),

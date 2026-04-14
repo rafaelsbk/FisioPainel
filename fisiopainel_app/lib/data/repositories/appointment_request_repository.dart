@@ -100,7 +100,6 @@ class AppointmentRequestRepository {
       return data['count'];
     } else {
       // Falha silenciosa ou retorno 0 para nao quebrar a UI de badge
-      print('Erro ao buscar contagem: ${response.body}');
       return 0;
     }
   }
@@ -119,7 +118,6 @@ class AppointmentRequestRepository {
     
     // Nao precisamos lançar erro se falhar, apenas logar
     if (response.statusCode != 200) {
-       print('Erro ao marcar como lido: ${response.body}');
     }
   }
 

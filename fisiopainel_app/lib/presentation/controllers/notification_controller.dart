@@ -17,7 +17,6 @@ class NotificationController extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print("Erro ao buscar contagem de notificações: $e");
     }
   }
 
@@ -27,7 +26,6 @@ class NotificationController extends ChangeNotifier {
       unreadCount = 0;
       notifyListeners();
     } catch (e) {
-       print("Erro ao marcar notificações como lidas: $e");
     }
   }
 }

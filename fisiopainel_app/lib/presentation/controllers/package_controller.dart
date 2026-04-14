@@ -90,8 +90,6 @@ class PackageController extends ChangeNotifier {
       return true;
     } catch (e) {
       error = e.toString();
-      // ignore: avoid_print
-      print('Erro ao criar pacote: $e'); // Adicionado para depuração
       return false; // O finally vai cuidar do notifyListeners e isLoading
     } finally {
       isLoading = false;
