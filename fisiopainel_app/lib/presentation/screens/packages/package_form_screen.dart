@@ -10,12 +10,16 @@ class PackageFormScreen extends StatefulWidget {
   final PackageController controller;
   final PackageModel? package;
   final bool isRenewal;
+  final DateTime? initialStartDate;
+  final TimeOfDay? initialTime;
 
   const PackageFormScreen({
-    super.key, 
-    required this.controller, 
+    super.key,
+    required this.controller,
     this.package,
     this.isRenewal = false,
+    this.initialStartDate,
+    this.initialTime,
   });
 
   @override
@@ -40,7 +44,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   DateTime? _selectedStartDate;
   TimeOfDay? _selectedTime;
   String _status = "ATIVO";
-  
+
   // 0=Segunda, 6=Domingo (alinhado com o weekday do Dart/Python)
   final List<int> _selectedWeekDays = [];
   final List<String> _weekDayNames = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -56,14 +60,13 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       _selectedProfessionalId = pkg.professionalId;
       _selectedTypeId = pkg.serviceTypeId;
       _qtdCtrl.text = pkg.quantity.toString();
-      
+
       final nf = NumberFormat.currency(locale: 'pt_BR', symbol: '');
       _totalCtrl.text = nf.format(pkg.totalValue).trim();
       _sessionValueCtrl.text = nf.format(pkg.sessionValue).trim();
-      
+
       if (widget.isRenewal) {
         _status = "ATIVO";
-        // Na renovação, não trazemos a data de pagamento anterior
       } else {
         _status = pkg.status;
         if (pkg.paymentDate != null) {
@@ -86,19 +89,33 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       if (pkg.weekDays != null && pkg.weekDays!.isNotEmpty) {
         _selectedWeekDays.addAll(pkg.weekDays!.split(',').map((e) => int.parse(e)));
       }
+    } else {
+      // Se for um novo pacote e houver valores iniciais
+      if (widget.initialStartDate != null) {
+        _selectedStartDate = widget.initialStartDate;
+        _startDateCtrl.text = DateFormat('dd/MM/yyyy').format(widget.initialStartDate!);
+        // Pré-selecionar o dia da semana
+        _selectedWeekDays.add(widget.initialStartDate!.weekday - 1);
+      }
+      if (widget.initialTime != null) {
+        _selectedTime = widget.initialTime;
+        final hour = widget.initialTime!.hour.toString().padLeft(2, '0');
+        final minute = widget.initialTime!.minute.toString().padLeft(2, '0');
+        _timeCtrl.text = "$hour:$minute";
+      }
     }
   }
 
   void _calculateSessionValue() {
     final qtdText = _qtdCtrl.text;
     final qtd = double.tryParse(qtdText) ?? 0;
-    
+
     final totalStr = _totalCtrl.text.replaceAll('.', '').replaceAll(',', '.');
     final total = double.tryParse(totalStr) ?? 0;
-    
+
     if (qtd > 0 && total > 0) {
       final sessionVal = total / qtd;
-      _sessionValueCtrl.text = NumberFormat.currency(locale: 'pt_BR', symbol: '').format(sessionVal).trim();
+      _sessionValueCtrl.text = NumberFormat.currency(locale: 'pt_BR', symbol: '').format(sessionVal).trim();    
     }
   }
 
@@ -128,10 +145,8 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       setState(() {
         _selectedStartDate = picked;
         _startDateCtrl.text = DateFormat('dd/MM/yyyy').format(picked);
-        
-        // Se nenhum dia da semana estiver selecionado, seleciona o dia da data inicial
+
         if (_selectedWeekDays.isEmpty) {
-          // No Dart weekday é 1 (Seg) a 7 (Dom). Subtraímos 1 para alinhar com 0-6.
           _selectedWeekDays.add(picked.weekday - 1);
         }
       });
@@ -151,9 +166,28 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
     }
   }
 
+  Future<bool> _showReorderConfirmation() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirmar Alteração"),
+        content: const Text("As datas de atendimento serão reagendadas, deseja confirmar?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("CANCELAR"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("CONFIRMAR"),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
   Future<void> _submit() async {
-    // Verificar se o paciente está ativo antes de submeter
-    final selectedPatient = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId);
+    final selectedPatient = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId);       
     if (!selectedPatient.isActive) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -164,7 +198,6 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       return;
     }
 
-    // Verificar se o tipo de atendimento está ativo
     final selectedType = widget.controller.serviceTypesList.firstWhere((t) => t.id == _selectedTypeId);
     if (!selectedType.isActive) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -186,6 +219,22 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
 
       final totalStr = _totalCtrl.text.replaceAll('.', '').replaceAll(',', '.');
       final sessionStr = _sessionValueCtrl.text.replaceAll('.', '').replaceAll(',', '.');
+      final currentWeekDaysStr = _selectedWeekDays.isEmpty ? null : _selectedWeekDays.join(',');
+
+      // Se estiver editando, verificar se houve mudanças que exigem reagendamento
+      if (_isEditing && widget.package != null) {
+        final pkg = widget.package!;
+        bool mudouAgendamento = false;
+
+        if (_selectedStartDate != pkg.startDate) mudouAgendamento = true;
+        if (formattedTime != pkg.horarioAtendimento) mudouAgendamento = true;
+        if (currentWeekDaysStr != pkg.weekDays) mudouAgendamento = true;
+
+        if (mudouAgendamento) {
+          final confirm = await _showReorderConfirmation();
+          if (!confirm) return;
+        }
+      }
 
       final packageData = PackageModel(
         id: _isEditing ? widget.package!.id : null,
@@ -199,7 +248,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
         paymentDate: _selectedDate,
         startDate: _selectedStartDate,
         horarioAtendimento: formattedTime,
-        weekDays: _selectedWeekDays.isEmpty ? null : _selectedWeekDays.join(','),
+        weekDays: currentWeekDaysStr,
         renovatedFrom: widget.package?.id,
       );
 
@@ -279,10 +328,9 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                 const Divider(),
                 const SizedBox(height: 20),
 
-                // --- SEÇÃO: INFORMAÇÕES BÁSICAS ---
                 const _SectionTitle(title: 'Informações do Pacote', icon: Icons.info_outline),
                 const SizedBox(height: 15),
-                
+
                 LayoutBuilder(
                   builder: (context, constraints) => Autocomplete<PatientModel>(
                     displayStringForOption: (PatientModel option) => option.completeName,
@@ -351,8 +399,8 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                                 final PatientModel option = options.elementAt(index);
                                 return ListTile(
                                   title: Text(option.completeName),
-                                  subtitle: option.isActive 
-                                      ? null 
+                                  subtitle: option.isActive
+                                      ? null
                                       : const Text('Inativo', style: TextStyle(color: Colors.red, fontSize: 11)),
                                   onTap: () => onSelected(option),
                                 );
@@ -366,7 +414,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                 ),
                 if (_selectedPatientId != null)
                   Builder(builder: (context) {
-                    final p = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId);
+                    final p = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId);     
                     if (!p.isActive) {
                       return Padding(
                         padding: const EdgeInsets.only(top: 12.0),
@@ -395,7 +443,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                     return const SizedBox.shrink();
                   }),
                 const SizedBox(height: 15),
-                
+
                 DropdownButtonFormField<int>(
                   decoration: const InputDecoration(
                     labelText: 'Tipo de Atendimento *',
@@ -411,7 +459,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                 ),
                 if (_selectedTypeId != null)
                   Builder(builder: (context) {
-                    final t = widget.controller.serviceTypesList.firstWhere((t) => t.id == _selectedTypeId);
+                    final t = widget.controller.serviceTypesList.firstWhere((t) => t.id == _selectedTypeId);    
                     if (!t.isActive) {
                       return Padding(
                         padding: const EdgeInsets.only(top: 12.0),
@@ -440,7 +488,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                     return const SizedBox.shrink();
                   }),
                 const SizedBox(height: 15),
-                
+
                 DropdownButtonFormField<int>(
                   decoration: const InputDecoration(
                     labelText: 'Profissional Responsável *',
@@ -456,10 +504,9 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                 ),
                 const SizedBox(height: 25),
 
-                // --- SEÇÃO: VALORES ---
                 const _SectionTitle(title: 'Valores e Sessões', icon: Icons.payments_outlined),
                 const SizedBox(height: 15),
-                
+
                 TextFormField(
                   controller: _qtdCtrl,
                   keyboardType: TextInputType.number,
@@ -469,7 +516,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                   ),
                   onChanged: (_) {
                     _calculateSessionValue();
-                    setState(() {}); // Atualiza para mostrar/esconder o aviso de pagamento
+                    setState(() {});
                   },
                   validator: (v) => (v == null || v.isEmpty) ? 'Informe a quantidade' : null,
                 ),
@@ -486,7 +533,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                   ),
                   onChanged: (_) {
                     _calculateSessionValue();
-                    setState(() {}); // Atualiza avisos de valor
+                    setState(() {});
                   },
                   validator: (v) => (v == null || v.isEmpty) ? 'Informe o valor total' : null,
                 ),
@@ -510,7 +557,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                     return const SizedBox.shrink();
                   }),
                 const SizedBox(height: 15),
-                
+
                 TextFormField(
                   controller: _sessionValueCtrl,
                   readOnly: true,
@@ -523,71 +570,71 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                 ),
                 const SizedBox(height: 25),
 
-                // --- SEÇÃO: AGENDAMENTO AUTOMÁTICO ---
-                if (!_isEditing) ...[
-                  const _SectionTitle(title: 'Agendamento Automático', icon: Icons.auto_awesome),
-                  const SizedBox(height: 15),
-                  TextFormField(
-                    controller: _startDateCtrl,
-                    readOnly: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Data de Início das Sessões *',
-                      prefixIcon: Icon(Icons.calendar_month_outlined),
-                      suffixIcon: Icon(Icons.edit_calendar),
-                    ),
-                    onTap: _pickStartDate,
-                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe a data de início' : null,
+                // --- SEÇÃO: HORÁRIO E DIAS ---
+                _SectionTitle(
+                  title: _isEditing ? 'Horário e Dias de Atendimento' : 'Agendamento Automático', 
+                  icon: Icons.auto_awesome
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: _startDateCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Data de Início das Sessões *',
+                    prefixIcon: Icon(Icons.calendar_month_outlined),
+                    suffixIcon: Icon(Icons.edit_calendar),
                   ),
-                  const SizedBox(height: 15),
-                  TextFormField(
-                    controller: _timeCtrl,
-                    readOnly: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Horário do Atendimento *',
-                      prefixIcon: Icon(Icons.access_time),
-                      suffixIcon: Icon(Icons.edit_calendar),
-                    ),
-                    onTap: _pickTime,
-                    validator: (v) => (!_isEditing && (v == null || v.isEmpty)) ? 'Informe o horário' : null,
+                  onTap: _pickStartDate,
+                  validator: (v) => (v == null || v.isEmpty) ? 'Informe a data de início' : null,
+                ),
+                const SizedBox(height: 15),
+                TextFormField(
+                  controller: _timeCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Horário do Atendimento *',
+                    prefixIcon: Icon(Icons.access_time),
+                    suffixIcon: Icon(Icons.edit_calendar),
                   ),
-                  const SizedBox(height: 15),
-                  const Text(
-                    "Dias da Semana para Atendimento:",
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey),
+                  onTap: _pickTime,
+                  validator: (v) => (v == null || v.isEmpty) ? 'Informe o horário' : null,  
+                ),
+                const SizedBox(height: 15),
+                const Text(
+                  "Dias da Semana para Atendimento:",
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blueGrey),        
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: List.generate(7, (index) {
+                      final isSelected = _selectedWeekDays.contains(index);
+                      return FilterChip(
+                        label: Text(_weekDayNames[index]),
+                        selected: isSelected,
+                        selectedColor: Colors.blue[100],
+                        checkmarkColor: Colors.blue[700],
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedWeekDays.add(index);
+                            } else {
+                              _selectedWeekDays.remove(index);
+                            }
+                          });
+                        },
+                      );
+                    }),
                   ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: List.generate(7, (index) {
-                        final isSelected = _selectedWeekDays.contains(index);
-                        return FilterChip(
-                          label: Text(_weekDayNames[index]),
-                          selected: isSelected,
-                          selectedColor: Colors.blue[100],
-                          checkmarkColor: Colors.blue[700],
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _selectedWeekDays.add(index);
-                              } else {
-                                _selectedWeekDays.remove(index);
-                              }
-                            });
-                          },
-                        );
-                      }),
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                ],
+                ),
+                const SizedBox(height: 25),
 
-                // --- SEÇÃO: STATUS E PAGAMENTO ---
                 const _SectionTitle(title: 'Status e Pagamento', icon: Icons.check_circle_outline),
                 const SizedBox(height: 15),
-                
+
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(
                     labelText: 'Status do Pacote',
@@ -602,7 +649,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                   onChanged: (val) => setState(() => _status = val!),
                 ),
                 const SizedBox(height: 15),
-                
+
                 TextFormField(
                   controller: _dateCtrl,
                   readOnly: true,
@@ -622,7 +669,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                     builder: (context) {
                       bool isPatientInactive = false;
                       if (_selectedPatientId != null) {
-                        final p = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId);
+                        final p = widget.controller.patientsList.firstWhere((p) => p.id == _selectedPatientId); 
                         isPatientInactive = !p.isActive;
                       }
 

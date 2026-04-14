@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../../controllers/global_appointment_controller.dart';
+import '../../controllers/package_controller.dart';
 import '../../../domain/models/appointment_model.dart';
+import '../packages/package_form_screen.dart';
 import 'appointment_detail_screen.dart';
 import '../../widgets/network_error_dialog.dart';
 
@@ -15,6 +17,7 @@ class GlobalAppointmentsScreen extends StatefulWidget {
 
 class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
   final GlobalAppointmentController _controller = GlobalAppointmentController();
+  final PackageController _packageController = PackageController();
   bool _isListView = false;
   DateTime _focusedDate = DateTime.now();
   DateTime _selectedDay = DateTime.now();
@@ -26,6 +29,7 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
     _initLocale();
     _controller.addListener(_onControllerChange);
     _controller.loadAppointments();
+    _packageController.loadData();
   }
 
   void _onControllerChange() {
@@ -75,6 +79,21 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
     setState(() {
       _focusedDate = DateTime.now();
       _selectedDay = DateTime.now();
+    });
+  }
+
+  void _createPackageForSlot(DateTime day, int hour) {
+    showDialog(
+      context: context,
+      builder: (context) => PackageFormScreen(
+        controller: _packageController,
+        initialStartDate: day,
+        initialTime: TimeOfDay(hour: hour, minute: 0),
+      ),
+    ).then((success) {
+      if (success == true) {
+        _controller.loadAppointments();
+      }
     });
   }
 
@@ -261,30 +280,26 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
   Widget _buildCalendarView() {
     final hours = List.generate(15, (i) => i + 6); // 06:00 - 20:00
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: hours.map((hour) {
-            final appts = _getAppointmentsForSlot(_selectedDay, hour);
-            return _buildHourColumn(hour, appts);
-          }).toList(),
-        ),
-      ),
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: hours.length,
+      itemBuilder: (context, index) {
+        final hour = hours[index];
+        final appts = _getAppointmentsForSlot(_selectedDay, hour);
+        return _buildHourRow(hour, appts);
+      },
     );
   }
 
-  Widget _buildHourColumn(int hour, List<AppointmentModel> appts) {
-    return Container(
-      width: 180, // Coluna maior para evidenciar clientes
-      margin: const EdgeInsets.only(right: 12),
-      child: Column(
+  Widget _buildHourRow(int hour, List<AppointmentModel> appts) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: double.infinity,
+            width: 55,
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: Colors.blue[600],
@@ -293,23 +308,58 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
             child: Center(
               child: Text(
                 "${hour.toString().padLeft(2, '0')}:00",
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white, 
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          if (appts.isEmpty)
-            Container(
-              height: 100,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[200]!),
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.white.withOpacity(0.5),
-              ),
-              child: const Center(child: Icon(Icons.add, color: Colors.grey, size: 20)),
-            )
-          else
-            ...appts.map((appt) => _buildAppointmentCard(appt)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (appts.isEmpty)
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _createPackageForSlot(_selectedDay, hour),
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[200]!),
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white.withOpacity(0.5),
+                        ),
+                        child: const Center(child: Icon(Icons.add, color: Colors.grey, size: 20)),
+                      ),
+                    ),
+                  )
+                else ...[
+                  ...appts.map((appt) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildAppointmentCard(appt),
+                    ),
+                  )).toList(),
+                  GestureDetector(
+                    onTap: () => _createPackageForSlot(_selectedDay, hour),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[200]!),
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                      child: const Center(child: Icon(Icons.add, color: Colors.grey, size: 20)),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -325,7 +375,6 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
         ).then((_) => _controller.loadAppointments());
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -359,6 +408,7 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
               appt.professionalName ?? "S/ Prof.",
               style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
             Container(

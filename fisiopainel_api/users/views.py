@@ -199,12 +199,72 @@ class PacoteViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = self.get_object()
         nova_quantidade = serializer.validated_data.get('quantidade_total')
-        
+        nova_data_inicio = serializer.validated_data.get('data_inicio')
+        novos_dias_semana = serializer.validated_data.get('dias_semana')
+        novo_horario = serializer.validated_data.get('horario_atendimento')
+
         # 1. SALVA A INSTÂNCIA PRIMEIRO (Para os cálculos seguintes)
         pacote = serializer.save(editado_por=self.request.user)
 
-        # Se a quantidade mudou, precisamos ajustar os agendamentos
-        if nova_quantidade is not None and nova_quantidade != instance.quantidade_total:
+        # Detectar se houve mudança nos parâmetros de agendamento
+        mudou_agendamento = (
+            (nova_data_inicio is not None and nova_data_inicio != instance.data_inicio) or
+            (novos_dias_semana is not None and novos_dias_semana != instance.dias_semana) or
+            (novo_horario is not None and novo_horario != instance.horario_atendimento)
+        )
+
+        if mudou_agendamento:
+            # Reorganizar agendamentos: deletar os futuros (não realizados/falta) e recriar
+            agendamentos_preservados = pacote.agendamentos.filter(
+                status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
+            ).count()
+
+            # Deleta todos que não foram realizados ou falta
+            pacote.agendamentos.exclude(
+                status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
+            ).delete()
+
+            # Recriar os agendamentos restantes
+            restante = pacote.quantidade_total - agendamentos_preservados
+            if restante > 0 and pacote.data_inicio and pacote.dias_semana:
+                try:
+                    selected_days = [int(d) for d in pacote.dias_semana.split(',')]
+                    count = 0
+                    current_date = pacote.data_inicio
+                    session_time = pacote.horario_atendimento or time(8, 0)
+
+                    # Se a data de início for no passado, começamos a partir de hoje para não sobrescrever o histórico
+                    # mas o usuário pode querer reagendar tudo a partir da nova data. 
+                    # Como preservamos REALIZADO/FALTA, podemos começar da data_inicio.
+                    
+                    while count < restante:
+                        # Só cria se não houver um agendamento REALIZADO/FALTA no mesmo dia (para evitar duplicidade)
+                        # No entanto, a lógica de pacotes geralmente assume sessões sequenciais.
+                        # Para simplificar: criamos 'restante' sessões nos dias da semana escolhidos
+                        if current_date.weekday() in selected_days:
+                            # Verifica se já existe uma sessão preservada neste exato dia/hora (improvável se mudou o horário)
+                            # ou apenas se já existe uma sessão preservada neste dia.
+                            existe_preservado = pacote.agendamentos.filter(
+                                data_hora__date=current_date,
+                                status__in=[Agendamento.Status.REALIZADO, Agendamento.Status.FALTA]
+                            ).exists()
+
+                            if not existe_preservado:
+                                Agendamento.objects.create(
+                                    pacote=pacote,
+                                    profissional=pacote.profissional,
+                                    data_hora=datetime.combine(current_date, session_time),
+                                    status=Agendamento.Status.AGENDADO,
+                                    criado_por=self.request.user
+                                )
+                                count += 1
+                        
+                        current_date += timedelta(days=1)
+                except Exception as e:
+                    print(f"Erro na reorganização de sessões: {e}")
+
+        # Caso a quantidade mudou, mas NÃO houve mudança nos dias/data (caso mudou apenas a quantidade)
+        elif nova_quantidade is not None and nova_quantidade != instance.quantidade_total:
             total_atual = pacote.agendamentos.count()
             
             # CASO A: A quantidade DIMINUIU
