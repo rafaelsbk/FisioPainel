@@ -27,13 +27,10 @@ class PatientRepository {
 
     // --- LÓGICA DE REFRESH ---
     if (response.statusCode == 401) {
-      print('Token expirado (401). Tentando renovar...');
-
       final authRepo = AuthRepository();
       final refreshed = await authRepo.tryAutoLogin();
 
       if (refreshed) {
-        print('Token renovado! Tentando a requisição novamente...');
         // Pega os headers novos (com o token novo)
         final newHeaders = await _getHeaders();
         // Tenta a requisição de novo

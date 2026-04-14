@@ -16,10 +16,10 @@ class PackageDto {
       status: json['status'] ?? 'ATIVO',
 
       paymentDate: (json['data_pagamento'] != null && json['data_pagamento'].toString().isNotEmpty) 
-          ? DateTime.parse(json['data_pagamento'].toString()) 
+          ? DateTime.parse(json['data_pagamento'].toString()).toLocal() 
           : null,
       startDate: (json['data_inicio'] != null && json['data_inicio'].toString().isNotEmpty)
-          ? DateTime.parse(json['data_inicio'].toString())
+          ? DateTime.parse(json['data_inicio'].toString()).toLocal()
           : null,
       horarioAtendimento: json['horario_atendimento'],
       weekDays: json['dias_semana'],

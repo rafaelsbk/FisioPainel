@@ -45,7 +45,6 @@ class LoginController extends ChangeNotifier {
           }
         }
       } catch (e) {
-        debugPrint('Erro ao decodificar token: $e');
       }
 
       if (tokenDto.role != null) {

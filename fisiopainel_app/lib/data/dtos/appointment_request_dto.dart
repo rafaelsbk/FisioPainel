@@ -16,7 +16,7 @@ class AppointmentRequestDto {
       status: json['status'],
       message: json['mensagem'],
       dataCriacao: (json['data_criacao'] != null && json['data_criacao'].toString().isNotEmpty)
-          ? DateTime.parse(json['data_criacao'].toString())
+          ? DateTime.parse(json['data_criacao'].toString()).toLocal()
           : DateTime.now(),
     );
   }
