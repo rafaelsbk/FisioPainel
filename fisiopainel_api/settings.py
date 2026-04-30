@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 # 1. Certifique-se de que o Host está listado corretamente
-ALLOWED_HOSTS = ['genesis1.vps-kinghost.net', 'localhost', '127.0.0.1', '*']
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 # 2. Configurações cruciais para HTTPS e Proxy
 # Informa ao Django para confiar no HTTPS vindo do Nginx
@@ -18,11 +18,11 @@ USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
 
 # Configurações de cookies seguros para evitar 403 em operações POST/Login
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
 
 # Adicione o seu domínio como origem confiável para CSRF
-CSRF_TRUSTED_ORIGINS = ['https://genesis1.vps-kinghost.net']
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000', cast=Csv())
 
 # 3. Mantenha o CORS liberado para o seu Front-end
 CORS_ALLOW_ALL_ORIGINS = True
