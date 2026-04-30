@@ -39,9 +39,9 @@ class ServiceTypeRepository {
     return [];
   }
 
-  Future<void> createServiceType(String name) async {
+  Future<void> createServiceType(String name, String color) async {
     var headers = await _getHeaders();
-    final body = jsonEncode(ServiceTypeDto.toJson(name, true));
+    final body = jsonEncode(ServiceTypeDto.toJson(name, color, true));
 
     var response = await http.post(Uri.parse('$apiBase/'), headers: headers, body: body);
 
@@ -56,9 +56,9 @@ class ServiceTypeRepository {
     }
   }
 
-  Future<void> updateServiceType(int id, String name, bool isActive) async {
+  Future<void> updateServiceType(int id, String name, String color, bool isActive) async {
     var headers = await _getHeaders();
-    final body = jsonEncode(ServiceTypeDto.toJson(name, isActive));
+    final body = jsonEncode(ServiceTypeDto.toJson(name, color, isActive));
 
     var response = await http.put(Uri.parse('$apiBase/$id/'), headers: headers, body: body);
 

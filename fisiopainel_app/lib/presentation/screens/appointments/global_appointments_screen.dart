@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -66,12 +67,14 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
   void _previousWeek() {
     setState(() {
       _focusedDate = _focusedDate.subtract(const Duration(days: 7));
+      _selectedDay = _selectedDay.subtract(const Duration(days: 7));
     });
   }
 
   void _nextWeek() {
     setState(() {
       _focusedDate = _focusedDate.add(const Duration(days: 7));
+      _selectedDay = _selectedDay.add(const Duration(days: 7));
     });
   }
 
@@ -93,6 +96,26 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
     ).then((success) {
       if (success == true) {
         _controller.loadAppointments();
+      }
+    });
+  }
+
+  void _updateAppointmentDateTime(AppointmentModel appt, DateTime newDate, int? newHour) {
+    final originalDateTime = appt.dateTime ?? DateTime.now();
+    final hour = newHour ?? originalDateTime.hour;
+    final minute = originalDateTime.minute;
+    
+    final newDateTime = DateTime(newDate.year, newDate.month, newDate.day, hour, minute);
+    
+    _controller.updateAppointmentDateTime(appt, newDateTime).then((success) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Agendamento atualizado com sucesso"),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     });
   }
@@ -175,16 +198,38 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
               ),
               Row(
                 children: [
-                  IconButton(
-                    onPressed: _previousWeek, 
-                    icon: const Icon(Icons.chevron_left),
-                    style: IconButton.styleFrom(backgroundColor: Colors.grey[100]),
+                  DragTarget<AppointmentModel>(
+                    onWillAccept: (data) => true,
+                    onAccept: (appt) {
+                      _previousWeek();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Semana anterior. Solte o card no novo dia/horário.")),
+                      );
+                    },
+                    builder: (context, candidateData, rejectedData) => IconButton(
+                      onPressed: _previousWeek, 
+                      icon: const Icon(Icons.chevron_left),
+                      style: IconButton.styleFrom(
+                        backgroundColor: candidateData.isNotEmpty ? Colors.blue[200] : Colors.grey[100],
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 4),
-                  IconButton(
-                    onPressed: _nextWeek, 
-                    icon: const Icon(Icons.chevron_right),
-                    style: IconButton.styleFrom(backgroundColor: Colors.grey[100]),
+                  DragTarget<AppointmentModel>(
+                    onWillAccept: (data) => true,
+                    onAccept: (appt) {
+                      _nextWeek();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Próxima semana. Solte o card no novo dia/horário.")),
+                      );
+                    },
+                    builder: (context, candidateData, rejectedData) => IconButton(
+                      onPressed: _nextWeek, 
+                      icon: const Icon(Icons.chevron_right),
+                      style: IconButton.styleFrom(
+                        backgroundColor: candidateData.isNotEmpty ? Colors.blue[200] : Colors.grey[100],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -214,38 +259,45 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
     final isSelected = day.day == _selectedDay.day && day.month == _selectedDay.month;
     final isToday = day.day == DateTime.now().day && day.month == DateTime.now().month;
 
-    return GestureDetector(
-      onTap: () => setState(() => _selectedDay = day),
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blue : (isToday ? Colors.blue[50] : Colors.grey[50]),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? Colors.blue : (isToday ? Colors.blue[200]! : Colors.transparent)),
-        ),
-        child: Column(
-          children: [
-            Text(
-              DateFormat('EEE', 'pt_BR').format(day).toUpperCase(),
-              style: TextStyle(
-                fontSize: 10, 
-                fontWeight: FontWeight.bold, 
-                color: isSelected ? Colors.white70 : Colors.grey[600]
-              ),
+    return DragTarget<AppointmentModel>(
+      onWillAccept: (data) => true,
+      onAccept: (appt) => _updateAppointmentDateTime(appt, day, null),
+      builder: (context, candidateData, rejectedData) {
+        final isOver = candidateData.isNotEmpty;
+        return GestureDetector(
+          onTap: () => setState(() => _selectedDay = day),
+          child: Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: isOver ? Colors.blue[300] : (isSelected ? Colors.blue : (isToday ? Colors.blue[50] : Colors.grey[50])),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isOver ? Colors.blue[800]! : (isSelected ? Colors.blue : (isToday ? Colors.blue[200]! : Colors.transparent))),
             ),
-            const SizedBox(height: 4),
-            Text(
-              day.day.toString(),
-              style: TextStyle(
-                fontSize: 16, 
-                fontWeight: FontWeight.bold, 
-                color: isSelected ? Colors.white : Colors.black87
-              ),
+            child: Column(
+              children: [
+                Text(
+                  DateFormat('EEE', 'pt_BR').format(day).toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10, 
+                    fontWeight: FontWeight.bold, 
+                    color: (isSelected || isOver) ? Colors.white70 : Colors.grey[600]
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  day.day.toString(),
+                  style: TextStyle(
+                    fontSize: 16, 
+                    fontWeight: FontWeight.bold, 
+                    color: (isSelected || isOver) ? Colors.white : Colors.black87
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -293,137 +345,194 @@ class _GlobalAppointmentsScreenState extends State<GlobalAppointmentsScreen> {
   }
 
   Widget _buildHourRow(int hour, List<AppointmentModel> appts) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 55,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.blue[600],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                "${hour.toString().padLeft(2, '0')}:00",
-                style: const TextStyle(
-                  color: Colors.white, 
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12
-                ),
-              ),
-            ),
+    return DragTarget<AppointmentModel>(
+      onWillAccept: (data) => true,
+      onAccept: (appt) => _updateAppointmentDateTime(appt, _selectedDay, hour),
+      builder: (context, candidateData, rejectedData) {
+        final isOver = candidateData.isNotEmpty;
+        return Container(
+          padding: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: isOver ? Colors.blue.withOpacity(0.05) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (appts.isEmpty)
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _createPackageForSlot(_selectedDay, hour),
-                      child: Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[200]!),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white.withOpacity(0.5),
-                        ),
-                        child: const Center(child: Icon(Icons.add, color: Colors.grey, size: 20)),
-                      ),
-                    ),
-                  )
-                else ...[
-                  ...appts.map((appt) => Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _buildAppointmentCard(appt),
-                    ),
-                  )).toList(),
-                  GestureDetector(
-                    onTap: () => _createPackageForSlot(_selectedDay, hour),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[200]!),
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                      child: const Center(child: Icon(Icons.add, color: Colors.grey, size: 20)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 55,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isOver ? Colors.blue[800] : Colors.blue[600],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    "${hour.toString().padLeft(2, '0')}:00",
+                    style: const TextStyle(
+                      color: Colors.white, 
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12
                     ),
                   ),
-                ],
-              ],
-            ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (appts.isEmpty)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _createPackageForSlot(_selectedDay, hour),
+                          child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: isOver ? Colors.blue[300]! : Colors.grey[200]!),
+                              borderRadius: BorderRadius.circular(12),
+                              color: isOver ? Colors.blue[50] : Colors.white.withOpacity(0.5),
+                            ),
+                            child: Center(child: Icon(Icons.add, color: isOver ? Colors.blue : Colors.grey, size: 20)),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      ...appts.map((appt) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _buildAppointmentCard(appt),
+                        ),
+                      )).toList(),
+                      GestureDetector(
+                        onTap: () => _createPackageForSlot(_selectedDay, hour),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey[200]!),
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white.withOpacity(0.5),
+                          ),
+                          child: const Center(child: Icon(Icons.add, color: Colors.grey, size: 20)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildAppointmentCard(AppointmentModel appt) {
     final statusColor = _getStatusColor(appt.status);
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => AppointmentDetailScreen(appointment: appt)),
-        ).then((_) => _controller.loadAppointments());
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: statusColor.withOpacity(0.3)),
-          boxShadow: [BoxShadow(color: statusColor.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 4,
-                  height: 20,
-                  decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(2)),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    appt.patientName ?? "S/ Paciente",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              appt.professionalName ?? "S/ Prof.",
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
+    final serviceColor = appt.serviceColor != null 
+        ? Color(int.parse(appt.serviceColor!.replaceFirst('#', '0xFF'))) 
+        : statusColor;
+
+    final card = Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: serviceColor.withOpacity(0.4), width: 1.5),
+        boxShadow: [BoxShadow(color: serviceColor.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 24,
+                decoration: BoxDecoration(color: serviceColor, borderRadius: BorderRadius.circular(3)),
               ),
-              child: Text(
-                appt.status,
-                style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  appt.patientName ?? "S/ Paciente",
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            appt.professionalName ?? "S/ Prof.",
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
             ),
-          ],
+            child: Text(
+              appt.status,
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (kIsWeb) {
+      return Draggable<AppointmentModel>(
+        data: appt,
+        feedback: Material(
+          color: Colors.transparent,
+          child: SizedBox(
+            width: 200,
+            child: card,
+          ),
         ),
+        childWhenDragging: Opacity(
+          opacity: 0.3,
+          child: card,
+        ),
+        child: GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AppointmentDetailScreen(appointment: appt)),
+            ).then((_) => _controller.loadAppointments());
+          },
+          child: card,
+        ),
+      );
+    }
+
+    return LongPressDraggable<AppointmentModel>(
+      data: appt,
+      feedback: Material(
+        color: Colors.transparent,
+        child: SizedBox(
+          width: 200,
+          child: card,
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: card,
+      ),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AppointmentDetailScreen(appointment: appt)),
+          ).then((_) => _controller.loadAppointments());
+        },
+        child: card,
       ),
     );
   }

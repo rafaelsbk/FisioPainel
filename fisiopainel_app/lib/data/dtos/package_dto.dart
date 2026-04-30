@@ -13,6 +13,7 @@ class PackageDto {
       totalValue: double.parse(json['valor_total'].toString()),
       sessionValue: double.parse(json['valor_por_sessao'].toString()),
       paidValue: double.parse((json['valor_pago'] ?? 0).toString()),
+      paymentMethod: json['forma_pagamento'],
       status: json['status'] ?? 'ATIVO',
 
       paymentDate: (json['data_pagamento'] != null && json['data_pagamento'].toString().isNotEmpty) 
@@ -24,6 +25,9 @@ class PackageDto {
       horarioAtendimento: json['horario_atendimento'],
       weekDays: json['dias_semana'],
       renovatedFrom: json['renovado_de'],
+      statusAgendamentos: json['status_agendamentos'] != null 
+          ? List<String>.from(json['status_agendamentos']) 
+          : null,
       patientName: json['nome_paciente'],
       professionalName: json['nome_profissional'],
       serviceName: json['nome_tipo_atendimento'],
@@ -40,6 +44,8 @@ class PackageDto {
       "quantidade_total": model.quantity,
       "valor_total": model.totalValue.toStringAsFixed(2),
       "valor_por_sessao": model.sessionValue.toStringAsFixed(2),
+      "valor_pago": model.paidValue.toStringAsFixed(2),
+      "forma_pagamento": model.paymentMethod,
       "status": model.status,
       "data_pagamento": model.paymentDate?.toIso8601String(),
       "data_inicio": model.startDate != null ? formatter.format(model.startDate!) : null,

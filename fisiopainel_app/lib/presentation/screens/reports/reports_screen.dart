@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../data/services/storage_service.dart';
 import '../../../data/repositories/report_repository.dart';
 import '../../../data/repositories/professional_repository.dart';
 import '../../../domain/models/appointment_model.dart';
@@ -17,6 +17,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   // Repositories
   final ReportRepository _reportRepo = ReportRepository();
   final ProfessionalRepository _profRepo = ProfessionalRepository();
+  final StorageService _storage = StorageService();
 
   // State
   List<ProfessionalModel> _professionals = [];
@@ -40,8 +41,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Future<void> _loadProfessionals() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final role = prefs.getString('user_role');
+      final role = await _storage.getUserRole();
 
       if (role == 'ADMIN') {
         final list = await _profRepo.getProfessionals();
@@ -51,22 +51,27 @@ class _ReportsScreenState extends State<ReportsScreen> {
           });
         }
       } else {
-        // Assume user is PROFESSIONAL (or anything else restricted)
-        // Construct a single item list with current user
-        final userIdStr = prefs.getString('user_id');
-        final username = prefs.getString('username') ?? 'Eu';
+        // Restricted access: Professional only sees themselves
+        final userIdStr = await _storage.getUserId();
+        final username = await _storage.getUsername() ?? 'Eu';
 
         if (userIdStr != null) {
-          final currentProf = ProfessionalModel(
-            id: int.parse(userIdStr),
-            username: username,
-            firstName:
-                username, // Fallback as we might not have full details here without extra fetch
-            lastName: '',
-            email: '',
-            phoneNumber: '',
-            cpf: '',
-            crefito: '',
+          final userId = int.parse(userIdStr);
+
+          // Try to find the full professional profile if already loaded or from API
+          final allProfs = await _profRepo.getProfessionals();
+          final currentProf = allProfs.firstWhere(
+            (p) => p.id == userId,
+            orElse: () => ProfessionalModel(
+              id: userId,
+              username: username,
+              firstName: username,
+              lastName: '',
+              email: '',
+              phoneNumber: '',
+              cpf: '',
+              crefito: '',
+            ),
           );
 
           if (mounted) {
@@ -78,6 +83,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         }
       }
     } catch (e) {
+      debugPrint("Erro ao carregar profissionais: $e");
     }
   }
 
@@ -252,234 +258,221 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final finSummary = _financialData!['resumo'];
     final finDetails = _financialData!['detalhes'] as List;
 
+    // Grouping logic: Month > Patient > Service Type > Appointments
+    final Map<String, Map<String, Map<String, List<dynamic>>>> groupedData = {};
+
+    for (var item in finDetails) {
+      final date = DateTime.parse(item['data_hora']).toLocal();
+      final monthKey = DateFormat('MMMM yyyy', 'pt_BR').format(date).toUpperCase();
+      final patientKey = item['paciente'] ?? 'Desconhecido';
+      final serviceKey = item['tipo_atendimento'] ?? 'Não informado';
+
+      groupedData.putIfAbsent(monthKey, () => {});
+      groupedData[monthKey]!.putIfAbsent(patientKey, () => {});
+      groupedData[monthKey]![patientKey]!.putIfAbsent(serviceKey, () => []);
+      groupedData[monthKey]![patientKey]![serviceKey]!.add(item);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // --- SUMMARY CARDS ---
         Row(
           children: [
-            Expanded(
-              child: _buildSummaryCard(
-                "Atendimentos",
-                "${opSummary['total_realizado']}",
-                Colors.blue,
-              ),
-            ),
+            Expanded(child: _buildSummaryCard("Atendimentos", "${opSummary['total_realizado']}", Colors.blue)),
             const SizedBox(width: 4),
-            Expanded(
-              child: _buildSummaryCard(
-                "Faltas",
-                "${opSummary['total_falta']}",
-                Colors.red,
-              ),
-            ),
+            Expanded(child: _buildSummaryCard("Faltas", "${opSummary['total_falta']}", Colors.red)),
             const SizedBox(width: 4),
-            Expanded(
-              child: _buildSummaryCard(
-                "Repasse Studio",
-                "R\$ ${finSummary['total_studio']}",
-                Colors.purple,
-              ),
-            ),
+            Expanded(child: _buildSummaryCard("Repasse Studio", "R\$ ${finSummary['total_studio']}", Colors.purple)),
             const SizedBox(width: 4),
-            Expanded(
-              child: _buildSummaryCard(
-                "Repasse Prof.",
-                "R\$ ${finSummary['total_repasse']}",
-                Colors.orange,
-              ),
-            ),
+            Expanded(child: _buildSummaryCard("Repasse Prof.", "R\$ ${finSummary['total_repasse']}", Colors.orange)),
             const SizedBox(width: 4),
-            Expanded(
-              child: _buildSummaryCard(
-                "Receita Total",
-                "R\$ ${finSummary['total_receita']}",
-                Colors.green,
-              ),
-            ),
+            Expanded(child: _buildSummaryCard("Receita Total", "R\$ ${finSummary['total_receita']}", Colors.green)),
           ],
         ),
 
         const SizedBox(height: 24),
 
-        // --- LIST HEADER ---
-        const Text(
-          "Atendimentos Realizados",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // --- UNIFIED LIST ---
-        if (finDetails.isEmpty)
+        if (groupedData.isEmpty)
           const Padding(
             padding: EdgeInsets.all(20.0),
-            child: Center(
-              child: Text("Nenhum atendimento realizado no período."),
-            ),
+            child: Center(child: Text("Nenhum atendimento realizado no período.")),
           )
         else
-          Column(
-            children: finDetails.map((item) {
-              final date = DateTime.parse(item['data_hora']).toLocal();
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    children: [
-                      // Date Box
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              DateFormat('dd/MM').format(date),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[900],
-                              ),
-                            ),
-                            Text(
-                              DateFormat('HH:mm').format(date),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-
-                      // Patient Info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  item['paciente'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                if (item['is_reposicao'] == true) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange[100],
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: Colors.orange[300]!,
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      "REPOSIÇÃO",
-                                      style: TextStyle(
-                                        color: Colors.orange,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            if (item['is_reposicao'] == true)
-                              Text(
-                                "Dono do Pacote: ${item['dono_pacote']}",
-                                style: TextStyle(
-                                  color: Colors.blue[700],
-                                  fontSize: 12,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Repasse: R\$ ${item['valor_repasse']}",
-                              style: TextStyle(
-                                color: Colors.orange[800],
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Studio: R\$ ${item['lucro_studio']}",
-                              style: TextStyle(
-                                color: Colors.purple[800],
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            if (item['is_reposicao'] == true)
-                              Text(
-                                "Realizado por: ${item['quem_realizou']}",
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 11,
-                                ),
-                              ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Pacote: R\$ ${item['valor_total_pacote']} (Sessão ${item['progresso_sessao']})",
-                              style: TextStyle(
-                                color: Colors.grey[700],
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Value Info
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text(
-                            "Valor Sessão",
-                            style: TextStyle(color: Colors.grey, fontSize: 11),
-                          ),
-                          Text(
-                            "R\$ ${item['valor_sessao']}",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.green[700],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+          ...groupedData.entries.map((monthEntry) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // MONTH HEADER
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.blueGrey[800],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    monthEntry.key,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
-              );
-            }).toList(),
-          ),
+                const SizedBox(height: 12),
+
+                ...monthEntry.value.entries.map((patientEntry) {
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 8.0, bottom: 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // PATIENT HEADER
+                        Row(
+                          children: [
+                            const Icon(Icons.person, size: 20, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Text(
+                              patientEntry.key,
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                            ),
+                          ],
+                        ),
+                        const Divider(),
+
+                        ...patientEntry.value.entries.map((serviceEntry) {
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 16.0, bottom: 12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // SERVICE TYPE HEADER
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[50],
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.blue[100]!),
+                                  ),
+                                  child: Text(
+                                    serviceEntry.key.toUpperCase(),
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue[900]),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+
+                                // SESSIONS LIST
+                                ...serviceEntry.value.map((item) {
+                                  final date = DateTime.parse(item['data_hora']).toLocal();
+                                  return _buildAppointmentCard(item, date);
+                                }).toList(),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                const SizedBox(height: 16),
+              ],
+            );
+          }).toList(),
       ],
+    );
+  }
+
+  Widget _buildAppointmentCard(dynamic item, DateTime date) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            // Date Box
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    DateFormat('dd/MM').format(date),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue[900]),
+                  ),
+                  Text(
+                    DateFormat('HH:mm').format(date),
+                    style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        "Sessão ${item['progresso_sessao']}",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      if (item['is_reposicao'] == true) ...[
+                        const SizedBox(width: 8),
+                        _buildBadge("REPOSIÇÃO", Colors.orange),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Repasse: R\$ ${item['valor_repasse']} | Studio: R\$ ${item['lucro_studio']}",
+                    style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                  ),
+                  if (item['is_reposicao'] == true)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        "Realizado por: ${item['quem_realizou']}",
+                        style: TextStyle(color: Colors.grey[600], fontSize: 11, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Value Info
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text("Valor", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                Text(
+                  "R\$ ${item['valor_sessao']}",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green[700]),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
     );
   }
 
@@ -497,11 +490,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             fit: BoxFit.scaleDown,
             child: Text(
               value,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
             ),
           ),
           const SizedBox(height: 4),

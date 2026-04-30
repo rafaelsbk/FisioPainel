@@ -15,6 +15,7 @@ class AppointmentDto {
       patientName: json['nome_paciente'],
       sessionProgress: json['progresso_sessao'],
       packageTotalValue: json['valor_total_pacote'],
+      serviceColor: json['cor_atendimento'],
       audit: AuditFields.fromJson(json),
     );
   }

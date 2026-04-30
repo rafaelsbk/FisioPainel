@@ -1,6 +1,40 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.db.models import Q
+
+class UserManager(BaseUserManager):
+    def create_user(self, username, email=None, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", False)
+        extra_fields.setdefault("is_superuser", False)
+        return self._create_user(username, email, password, **extra_fields)
+
+    def _create_user(self, username, email, password, **extra_fields):
+        if not username:
+            raise ValueError("The given username must be set")
+        email = self.normalize_email(email)
+        user = self.model(username=username, email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
+        # Tenta atribuir a role Administrador automaticamente
+        try:
+            admin_role = UserRole.objects.get(nome_cargo="Administrador")
+            extra_fields.setdefault("users_roles", admin_role)
+        except Exception:
+            # Role ainda nao existe (primeira migracao), ignora
+            pass
+
+        return self._create_user(username, email, password, **extra_fields)
 
 class AuditModel(models.Model):
     criado_por = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='%(class)s_criados')
@@ -12,7 +46,7 @@ class AuditModel(models.Model):
         abstract = True
 
 class User(AbstractUser, AuditModel):
-
+    objects = UserManager()
 
     users_roles = models.ForeignKey('UserRole', on_delete=models.SET_NULL, null=True, blank=True, related_name='users')
     telepone_number = models.CharField(max_length=20, blank=True, null=True)
@@ -73,6 +107,7 @@ class TelefonePaciente(AuditModel):
 
 class TipoAtendimento(AuditModel):
     nome_atendimento = models.CharField(max_length=100)
+    cor = models.CharField(max_length=7, default="#406657")
     ativo = models.BooleanField(default=True)
 
     def __str__(self):
@@ -84,13 +119,21 @@ class Pacote(AuditModel):
         FINALIZADO = "FINALIZADO", "Finalizado"
         CANCELADO = "CANCELADO", "Cancelado"
 
+    class FormaPagamento(models.TextChoices):
+        DEBITO = "DEBITO", "Débito"
+        CREDITO = "CREDITO", "Crédito"
+        PIX = "PIX", "PIX"
+        ESPECIE = "ESPECIE", "Espécie"
+        OUTROS = "OUTROS", "Outros"
+
     paciente = models.ForeignKey('Paciente', on_delete=models.CASCADE, related_name='pacotes')
     profissional = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, blank=True, related_name='pacotes_responsaveis')
-    tipo_atendimento = models.ForeignKey('TipoAtendimento', on_delete=models.CASCADE, related_name='pacotes')
+    tipo_atendimento = models.ForeignKey('TipoAtendimento', on_delete=models.CASCADE, related_name='pacotes')   
     quantidade_total = models.IntegerField()
     valor_total = models.DecimalField(max_digits=10, decimal_places=2)
     valor_por_sessao = models.DecimalField(max_digits=10, decimal_places=2)
     valor_pago = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    forma_pagamento = models.CharField(max_length=20, choices=FormaPagamento.choices, null=True, blank=True)
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.ATIVO)
     data_pagamento = models.DateTimeField(null=True, blank=True)
     renovado_de = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='renovacao')
@@ -109,6 +152,7 @@ class Agendamento(AuditModel):
         AGENDADO = "AGENDADO", "Agendado"
         REALIZADO = "REALIZADO", "Realizado"
         FALTA = "FALTA", "Falta"
+        REMARCADO = "REMARCADO", "Remarcado"
         CANCELADO = "CANCELADO", "Cancelado"
     
     class StatusRepasse(models.TextChoices):

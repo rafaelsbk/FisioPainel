@@ -9,14 +9,16 @@ class PackageModel {
   final double totalValue; // 'valor_total'
   final double sessionValue; // 'valor_por_sessao'
   final double paidValue; // 'valor_pago'
+  final String? paymentMethod; // 'forma_pagamento'
   final String status; // 'status'
   final DateTime? paymentDate; // 'data_pagamento'
   final DateTime? startDate; // 'data_inicio'
   final String? horarioAtendimento; // 'horario_atendimento' (Ex: "08:00:00")
   final String? weekDays; // 'dias_semana' (Ex: "0,2,4")
   final int? renovatedFrom; // 'renovado_de'
+  final List<String>? statusAgendamentos;
 
-  // Campos auxiliares para exibiÃ§Ã£o na lista
+  // Campos auxiliares para exibiÃƒÂ§ÃƒÂ£o na lista
   final String? patientName;
   final String? professionalName;
   final String? serviceName;
@@ -33,12 +35,14 @@ class PackageModel {
     required this.totalValue,
     required this.sessionValue,
     this.paidValue = 0,
+    this.paymentMethod,
     this.status = 'ATIVO',
     this.paymentDate,
     this.startDate,
     this.horarioAtendimento,
     this.weekDays,
     this.renovatedFrom,
+    this.statusAgendamentos,
     this.patientName,
     this.professionalName,
     this.serviceName,

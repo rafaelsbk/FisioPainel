@@ -6,13 +6,33 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Add custom claims
         role = user.users_roles
-        token['role'] = role.nome_cargo.upper() if role else None
+        
+        # Add custom claims
         token['username'] = user.username
         token['is_staff'] = user.is_staff
+        token['is_superuser'] = user.is_superuser
         
-        if role:
+        # Se for superuser, garantimos role de ADMIN mesmo que nao tenha FK vinculada
+        if user.is_superuser:
+            token['role'] = 'ADMIN'
+            token['permissions'] = {
+                'pode_gerenciar_usuarios': True,
+                'pode_gerenciar_pacientes': True,
+                'pode_gerenciar_pacotes': True,
+                'pode_gerenciar_agendamentos': True,
+                'pode_gerenciar_tipos_atendimento': True,
+                'pode_gerenciar_financeiro': True,
+                'visualizar_tudo': True,
+                'eh_profissional': True,
+            }
+        elif role:
+            # Sincroniza 'Administrador' -> 'ADMIN' para compatibilidade com o Frontend
+            if role.nome_cargo.upper() == 'ADMINISTRADOR':
+                token['role'] = 'ADMIN'
+            else:
+                token['role'] = role.nome_cargo.upper()
+            
             token['permissions'] = {
                 'pode_gerenciar_usuarios': role.pode_gerenciar_usuarios,
                 'pode_gerenciar_pacientes': role.pode_gerenciar_pacientes,
@@ -23,14 +43,38 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'visualizar_tudo': role.visualizar_tudo,
                 'eh_profissional': role.eh_profissional,
             }
+        else:
+            token['role'] = None
+            token['permissions'] = None
+            
         return token
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        role = self.user.users_roles
-        data['role'] = role.nome_cargo.upper() if role else None
-        data['username'] = self.user.username
-        if role:
+        user = self.user
+        role = user.users_roles
+        
+        data['username'] = user.username
+        
+        if user.is_superuser:
+            data['role'] = 'ADMIN'
+            data['permissions'] = {
+                'pode_gerenciar_usuarios': True,
+                'pode_gerenciar_pacientes': True,
+                'pode_gerenciar_pacotes': True,
+                'pode_gerenciar_agendamentos': True,
+                'pode_gerenciar_tipos_atendimento': True,
+                'pode_gerenciar_financeiro': True,
+                'visualizar_tudo': True,
+                'eh_profissional': True,
+            }
+        elif role:
+            # Sincroniza 'Administrador' -> 'ADMIN' para compatibilidade com o Frontend
+            if role.nome_cargo.upper() == 'ADMINISTRADOR':
+                data['role'] = 'ADMIN'
+            else:
+                data['role'] = role.nome_cargo.upper()
+                
             data['permissions'] = {
                 'pode_gerenciar_usuarios': role.pode_gerenciar_usuarios,
                 'pode_gerenciar_pacientes': role.pode_gerenciar_pacientes,
@@ -41,6 +85,10 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'visualizar_tudo': role.visualizar_tudo,
                 'eh_profissional': role.eh_profissional,
             }
+        else:
+            data['role'] = None
+            data['permissions'] = None
+            
         return data
 
 class UserRoleSerializer(serializers.ModelSerializer):
@@ -79,7 +127,7 @@ class UserSerializer(serializers.ModelSerializer):
         # Se tem permissão de gerenciar usuários, damos acesso ao staff do Django
         if user_role and user_role.pode_gerenciar_usuarios:
             validated_data['is_staff'] = True
-            validated_data['is_superuser'] = True # Mantemos superuser para quem pode gerenciar usuários
+            validated_data['is_superuser'] = True
             
         user = User.objects.create_user(**validated_data)
         user.set_password(password)
@@ -90,13 +138,17 @@ class UserSerializer(serializers.ModelSerializer):
         password = validated_data.pop('password', None)
         user_role = validated_data.get('users_roles', instance.users_roles)
 
-        # Atualiza permissões de staff baseado na role
-        if user_role and user_role.pode_gerenciar_usuarios:
-            instance.is_staff = True
-            instance.is_superuser = True
-        else:
-            instance.is_staff = False
-            instance.is_superuser = False
+        # Atualiza permissões de staff baseado na role apenas se houver uma role definida
+        if user_role:
+            if user_role.pode_gerenciar_usuarios:
+                instance.is_staff = True
+                instance.is_superuser = True
+            else:
+                # Se a role não permite gerenciar usuários, remove staff/superuser 
+                # a menos que seja o superuser inicial (preservação de segurança)
+                if instance.username != 'admin': # Exemplo de proteção básica
+                    instance.is_staff = False
+                    instance.is_superuser = False
 
         # Atualiza os outros campos
         for attr, value in validated_data.items():
@@ -167,18 +219,23 @@ class PacoteSerializer(serializers.ModelSerializer):
     nome_profissional = serializers.ReadOnlyField(source='profissional.username')
     nome_paciente = serializers.ReadOnlyField(source='paciente.complete_name')
     nome_tipo_atendimento = serializers.ReadOnlyField(source='tipo_atendimento.nome_atendimento')
+    status_agendamentos = serializers.SerializerMethodField()
 
     class Meta:
         model = Pacote
         fields = [
             'id', 'paciente', 'profissional', 'tipo_atendimento',
             'quantidade_total', 'valor_total', 'valor_por_sessao',
-            'valor_pago', 'status', 'data_pagamento', 'data_inicio', 'horario_atendimento', 'dias_semana',
+            'valor_pago', 'forma_pagamento', 'status', 'data_pagamento', 'data_inicio', 'horario_atendimento', 'dias_semana',      
             'renovado_de', 'criado_por_nome', 'editado_por_nome',
-            'nome_profissional', 'nome_paciente', 'nome_tipo_atendimento'
+            'nome_profissional', 'nome_paciente', 'nome_tipo_atendimento',
+            'status_agendamentos'
         ]
-    def validate(self, data):
-        # Validação apenas na atualização (quando self.instance existe)
+
+    def get_status_agendamentos(self, obj):
+        return list(obj.agendamentos.all().order_by('data_hora').values_list('status', flat=True))
+
+    def validate(self, data):        # Validação apenas na atualização (quando self.instance existe)
         if self.instance:
             nova_qtd = data.get('quantidade_total')
             if nova_qtd is not None and nova_qtd < self.instance.quantidade_total:
@@ -198,6 +255,7 @@ class AgendamentoSerializer(serializers.ModelSerializer):
     nome_paciente = serializers.SerializerMethodField()
     progresso_sessao = serializers.SerializerMethodField()
     valor_total_pacote = serializers.SerializerMethodField()
+    cor_atendimento = serializers.SerializerMethodField()
     criado_por_nome = serializers.ReadOnlyField(source='criado_por.username')
     editado_por_nome = serializers.ReadOnlyField(source='editado_por.username')
     
@@ -213,6 +271,11 @@ class AgendamentoSerializer(serializers.ModelSerializer):
 
     def get_valor_total_pacote(self, obj):
         return str(obj.pacote.valor_total) if obj.pacote else None
+
+    def get_cor_atendimento(self, obj):
+        if obj.pacote and obj.pacote.tipo_atendimento:
+            return obj.pacote.tipo_atendimento.cor
+        return "#406657"
 
     def get_progresso_sessao(self, obj):
         if not obj.pacote:

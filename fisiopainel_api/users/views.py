@@ -4,14 +4,39 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 from decimal import Decimal
 from datetime import datetime, timedelta, time
 from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, SolicitacaoAgendamento, UserRole
 from .serializers import UserSerializer, PacienteSerializer, TipoAtendimentoSerializer, PacoteSerializer, AgendamentoSerializer, SolicitacaoAgendamentoSerializer, UserRoleSerializer
 from .permissions import IsAdminRole, IsProfessionalOwnerOrAdmin, IsFinanceiroOrAdmin
 
+def get_filtered_pacotes(user, query=None):
+    """Helper para filtrar pacotes baseado na role e relacionamento do usuário."""
+    if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
+        queryset = Pacote.objects.all()
+    else:
+        # Retorna pacotes criados pelo profissional, de pacientes sob sua responsabilidade,
+        # ou onde ele tenha pelo menos um agendamento vinculado.
+        queryset = Pacote.objects.filter(
+            Q(criado_por=user) |
+            Q(paciente__profissional_responsavel=user) |
+            Q(agendamentos__professional=user)
+        ).distinct()
+
+    if query:
+        queryset = queryset.filter(
+            Q(paciente__complete_name__unaccent__icontains=query) |
+            Q(tipo_atendimento__nome_atendimento__unaccent__icontains=query)
+        )
+
+    return queryset.order_by('paciente__complete_name')
+
 class FinanceiroViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsFinanceiroOrAdmin]
+
+    def get_queryset(self):
+        return get_filtered_pacotes(self.request.user)
 
     @action(detail=False, methods=['get'])
     def status_pagamento(self, request):
@@ -19,7 +44,7 @@ class FinanceiroViewSet(viewsets.ViewSet):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         
-        queryset = Pacote.objects.all().select_related('paciente', 'profissional', 'tipo_atendimento')
+        queryset = self.get_queryset().select_related('paciente', 'profissional', 'tipo_atendimento')
         
         if status_filtro == 'true':
             # Totalmente pago (valor_pago >= valor_total)
@@ -35,8 +60,8 @@ class FinanceiroViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def renovacoes(self, request):
-        # Filtra pacotes ativos que ainda não foram renovados
-        pacotes_ativos = Pacote.objects.filter(
+        # Filtra pacotes ativos do usuário que ainda não foram renovados
+        pacotes_ativos = self.get_queryset().filter(
             status=Pacote.Status.ATIVO,
             renovacao__isnull=True
         )
@@ -96,11 +121,22 @@ class PacienteViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        query = self.request.query_params.get('q')
+        
         if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
-            return Paciente.objects.all()
-        return Paciente.objects.filter(
-            Q(criado_por=user) | Q(profissional_responsavel=user)
-        ).distinct()
+            queryset = Paciente.objects.all()
+        else:
+            queryset = Paciente.objects.filter(
+                Q(criado_por=user) | Q(profissional_responsavel=user)
+            ).distinct()
+            
+        if query:
+            queryset = queryset.filter(
+                Q(complete_name__unaccent__icontains=query) |
+                Q(email__unaccent__icontains=query) |
+                Q(cpf__icontains=query)
+            )
+        return queryset
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -134,22 +170,22 @@ class TipoAtendimentoViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         serializer.save(editado_por=self.request.user)
 
+from rest_framework.pagination import PageNumberPagination
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class PacoteViewSet(viewsets.ModelViewSet):
     queryset = Pacote.objects.all()
     serializer_class = PacoteSerializer
     permission_classes = [IsAuthenticated, IsProfessionalOwnerOrAdmin]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
-            return Pacote.objects.all()
-        # Retorna pacotes criados pelo profissional, de pacientes sob sua responsabilidade,
-        # ou onde ele tenha pelo menos um agendamento vinculado.
-        return Pacote.objects.filter(
-            Q(criado_por=user) | 
-            Q(paciente__profissional_responsavel=user) |
-            Q(agendamentos__profissional=user)
-        ).distinct()
+        query = self.request.query_params.get('q')
+        return get_filtered_pacotes(self.request.user, query=query)
 
     def perform_create(self, serializer):
         # Se um profissional foi enviado no JSON, usa ele. Caso contrário, usa o usuário logado se ele for profissional.
@@ -185,7 +221,7 @@ class PacoteViewSet(viewsets.ModelViewSet):
                         Agendamento.objects.create(
                             pacote=pacote,
                             profissional=profissional,
-                            data_hora=datetime.combine(current_date, session_time),
+                            data_hora=timezone.make_aware(datetime.combine(current_date, session_time)),
                             status=Agendamento.Status.AGENDADO,
                             criado_por=self.request.user
                         )
@@ -252,7 +288,7 @@ class PacoteViewSet(viewsets.ModelViewSet):
                                 Agendamento.objects.create(
                                     pacote=pacote,
                                     profissional=pacote.profissional,
-                                    data_hora=datetime.combine(current_date, session_time),
+                                    data_hora=timezone.make_aware(datetime.combine(current_date, session_time)),
                                     status=Agendamento.Status.AGENDADO,
                                     criado_por=self.request.user
                                 )
@@ -305,7 +341,7 @@ class PacoteViewSet(viewsets.ModelViewSet):
                                 Agendamento.objects.create(
                                     pacote=pacote,
                                     profissional=pacote.profissional,
-                                    data_hora=datetime.combine(current_date, session_time),
+                                    data_hora=timezone.make_aware(datetime.combine(current_date, session_time)),
                                     status=Agendamento.Status.AGENDADO,
                                     criado_por=self.request.user
                                 )
@@ -332,6 +368,7 @@ class PacoteViewSet(viewsets.ModelViewSet):
                     pacote.valor_pago += valor_decimal
                 
                 pacote.data_pagamento = datetime.now()
+                pacote.editado_por = request.user
                 pacote.save()
                 return Response({
                     'status': 'Pagamento registrado com sucesso', 
@@ -566,6 +603,7 @@ class RelatorioViewSet(viewsets.ViewSet):
                     'id': appt.id,
                     'data_hora': appt.data_hora,
                     'paciente': appt.pacote.paciente.complete_name,
+                    'tipo_atendimento': appt.pacote.tipo_atendimento.nome_atendimento,
                     'valor_sessao': str(valor_sessao),
                     'valor_repasse': str(repasse_final_profissional.quantize(Decimal('0.00'))),
                     'lucro_studio': str(lucro_studio.quantize(Decimal('0.00'))),
@@ -575,7 +613,6 @@ class RelatorioViewSet(viewsets.ViewSet):
                     'dono_pacote': PO.username if PO else "N/A",
                     'quem_realizou': RP.username if RP else "N/A"
                 })
-
             return Response({
                 'detalhes': detailed_list,
                 'resumo': {

@@ -10,6 +10,7 @@ class AppointmentModel {
   final String? patientName;
   final String? sessionProgress;
   final String? packageTotalValue;
+  final String? serviceColor;
   final AuditFields? audit;
 
   AppointmentModel({
@@ -22,6 +23,7 @@ class AppointmentModel {
     this.patientName,
     this.sessionProgress,
     this.packageTotalValue,
+    this.serviceColor,
     this.audit,
   });
 }

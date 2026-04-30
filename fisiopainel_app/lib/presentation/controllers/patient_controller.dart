@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/string_utils.dart';
 import '../../domain/models/patient_model.dart';
 import '../../data/repositories/patient_repository.dart';
 
@@ -36,10 +37,10 @@ class PatientController extends ChangeNotifier {
       filteredPatients = List.from(_allPatients);
     } else {
       filteredPatients = _allPatients.where((p) {
-        return p.completeName.toLowerCase().contains(query.toLowerCase()) ||
+        return StringUtils.containsAccentInsensitive(p.completeName, query) ||
             (p.cpf != null && p.cpf!.contains(query)) ||
             (p.email != null &&
-                p.email!.toLowerCase().contains(query.toLowerCase()));
+                StringUtils.containsAccentInsensitive(p.email!, query));
       }).toList();
     }
     notifyListeners();

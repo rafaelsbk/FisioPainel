@@ -199,7 +199,7 @@ Exceção Única: Apenas strings destinadas exclusivamente à exibição final p
 
 Padronização de Comentários:
 
-Substitua emojis por terminologias técnicas claras (ex: em vez de ✅, use [SUCCESS] ou [VALIDATED]).
+Substitua emojis por terminologias técnicas claras (ex: em vez de ✅).
 
 Mantenha o foco em explicações técnicas que ajudem na manutenção do sistema.
 

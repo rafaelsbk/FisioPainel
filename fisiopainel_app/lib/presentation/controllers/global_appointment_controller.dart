@@ -26,4 +26,40 @@ class GlobalAppointmentController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<bool> updateAppointmentDateTime(AppointmentModel appt, DateTime newDateTime) async {
+    try {
+      final updatedAppt = AppointmentModel(
+        id: appt.id,
+        packageId: appt.packageId,
+        dateTime: newDateTime,
+        status: appt.status,
+        professionalId: appt.professionalId,
+      );
+      
+      await _repo.updateAppointment(updatedAppt);
+      
+      // Atualiza localmente para feedback imediato
+      final index = appointments.indexWhere((a) => a.id == appt.id);
+      if (index != -1) {
+        appointments[index] = AppointmentModel(
+          id: appt.id,
+          packageId: appt.packageId,
+          dateTime: newDateTime,
+          status: appt.status,
+          professionalId: appt.professionalId,
+          professionalName: appt.professionalName,
+          patientName: appt.patientName,
+          sessionProgress: appt.sessionProgress,
+          packageTotalValue: appt.packageTotalValue,
+        );
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
 }

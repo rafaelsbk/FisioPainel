@@ -5,6 +5,7 @@ import '../../../domain/models/package_model.dart';
 import '../../../domain/models/patient_model.dart';
 import '../../controllers/package_controller.dart';
 import '../../widgets/currency_formatter.dart';
+import '../../widgets/string_utils.dart';
 
 class PackageFormScreen extends StatefulWidget {
   final PackageController controller;
@@ -43,11 +44,12 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
   DateTime? _selectedDate;
   DateTime? _selectedStartDate;
   TimeOfDay? _selectedTime;
+  String? _selectedPaymentMethod;
   String _status = "ATIVO";
 
   // 0=Segunda, 6=Domingo (alinhado com o weekday do Dart/Python)
   final List<int> _selectedWeekDays = [];
-  final List<String> _weekDayNames = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  final List<String> _weekDayNames = ["Seg", "Ter", "Qua", "Qui", "Sex", "SÃ¡b", "Dom"];
 
   @override
   void initState() {
@@ -60,8 +62,9 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       _selectedProfessionalId = pkg.professionalId;
       _selectedTypeId = pkg.serviceTypeId;
       _qtdCtrl.text = pkg.quantity.toString();
+      _selectedPaymentMethod = pkg.paymentMethod;
 
-      final nf = NumberFormat.currency(locale: 'pt_BR', symbol: '');
+      final nf = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$ ');
       _totalCtrl.text = nf.format(pkg.totalValue).trim();
       _sessionValueCtrl.text = nf.format(pkg.sessionValue).trim();
 
@@ -110,12 +113,11 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
     final qtdText = _qtdCtrl.text;
     final qtd = double.tryParse(qtdText) ?? 0;
 
-    final totalStr = _totalCtrl.text.replaceAll('.', '').replaceAll(',', '.');
-    final total = double.tryParse(totalStr) ?? 0;
+    final total = StringUtils.parseCurrency(_totalCtrl.text) ?? 0;
 
     if (qtd > 0 && total > 0) {
       final sessionVal = total / qtd;
-      _sessionValueCtrl.text = NumberFormat.currency(locale: 'pt_BR', symbol: '').format(sessionVal).trim();    
+      _sessionValueCtrl.text = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$ ').format(sessionVal).trim();    
     }
   }
 
@@ -217,8 +219,8 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
         formattedTime = "$hour:$minute";
       }
 
-      final totalStr = _totalCtrl.text.replaceAll('.', '').replaceAll(',', '.');
-      final sessionStr = _sessionValueCtrl.text.replaceAll('.', '').replaceAll(',', '.');
+      final total = StringUtils.parseCurrency(_totalCtrl.text) ?? 0;
+      final sessionVal = StringUtils.parseCurrency(_sessionValueCtrl.text) ?? 0;
       final currentWeekDaysStr = _selectedWeekDays.isEmpty ? null : _selectedWeekDays.join(',');
 
       // Se estiver editando, verificar se houve mudanças que exigem reagendamento
@@ -242,8 +244,10 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
         professionalId: _selectedProfessionalId!,
         serviceTypeId: _selectedTypeId!,
         quantity: int.parse(_qtdCtrl.text),
-        totalValue: double.parse(totalStr),
-        sessionValue: double.parse(sessionStr),
+        totalValue: total,
+        sessionValue: sessionVal,
+        paidValue: _isEditing ? widget.package!.paidValue : 0,
+        paymentMethod: _selectedPaymentMethod,
         status: _status,
         paymentDate: _selectedDate,
         startDate: _selectedStartDate,
@@ -659,6 +663,23 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                     suffixIcon: Icon(Icons.event),
                   ),
                   onTap: _pickDate,
+                ),
+                const SizedBox(height: 15),
+
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(
+                    labelText: 'Forma de Pagamento',
+                    prefixIcon: Icon(Icons.payment_outlined),
+                  ),
+                  value: _selectedPaymentMethod,
+                  items: const [
+                    DropdownMenuItem(value: "DEBITO", child: Text("Débito")),
+                    DropdownMenuItem(value: "CREDITO", child: Text("Crédito")),
+                    DropdownMenuItem(value: "PIX", child: Text("PIX")),
+                    DropdownMenuItem(value: "ESPECIE", child: Text("Espécie")),
+                    DropdownMenuItem(value: "OUTROS", child: Text("Outros")),
+                  ],
+                  onChanged: (val) => setState(() => _selectedPaymentMethod = val),
                 ),
 
                 const SizedBox(height: 40),

@@ -40,8 +40,11 @@ class PatientRepository {
     // -------------------------
 
     if (response.statusCode == 200) {
-      final List<dynamic> body = jsonDecode(utf8.decode(response.bodyBytes));
-      return body.map((json) => PatientDto.fromJson(json)).toList();
+      final dynamic decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      final List list = (decoded is Map && decoded.containsKey('results'))
+          ? decoded['results']
+          : decoded;
+      return list.map((json) => PatientDto.fromJson(json)).toList();
     } else if (response.statusCode == 401) {
       // Se ainda for 401, é porque o refresh falhou (logou em outro lugar ou passou muito tempo)
       throw Exception('Sessão expirada. Por favor, faça login novamente.');
