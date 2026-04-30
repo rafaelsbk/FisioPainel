@@ -22,11 +22,11 @@ class PackageRepository {
     };
   }
 
-  // 1. LISTAR PACOTES
-  Future<List<PackageModel>> getPackages() async {
+  // 1. LISTAR PACOTES COM PAGINAÃ‡ÃƒO
+  Future<List<PackageModel>> getPackages({int page = 1}) async {
     var headers = await _getHeaders();
     var response = await http.get(
-      Uri.parse('$apiBase/pacotes/'),
+      Uri.parse('$apiBase/pacotes/?page=$page'),
       headers: headers,
     );
 
@@ -34,18 +34,21 @@ class PackageRepository {
       await AuthRepository().tryAutoLogin();
       headers = await _getHeaders();
       response = await http.get(
-        Uri.parse('$apiBase/pacotes/'),
+        Uri.parse('$apiBase/pacotes/?page=$page'),
         headers: headers,
       );
     }
 
     if (response.statusCode == 200) {
       final dynamic decoded = jsonDecode(utf8.decode(response.bodyBytes));
-      // Tratamento genérico para paginação ou lista direta
+      // Tratamento genÃ©rico para paginaÃ§Ã£o ou lista direta
       final List list = (decoded is Map && decoded.containsKey('results'))
           ? decoded['results']
           : decoded;
       return list.map((e) => PackageDto.fromJson(e)).toList();
+    } else if (response.statusCode == 404) {
+      // PÃ¡gina nÃ£o encontrada (fim da lista)
+      return [];
     } else {
       throw Exception('Erro ao listar pacotes');
     }

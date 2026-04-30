@@ -24,33 +24,94 @@ class _ServiceTypeScreenState extends State<ServiceTypeScreen> {
 
   Future<void> _showForm({ServiceTypeModel? item}) async {
     _nameCtrl.text = item?.name ?? '';
+    String hexColor = item?.color ?? '#406657';
     bool isActive = item?.isActive ?? true;
+
+    final List<String> presetColors = [
+      '#406657', '#2E7D32', '#1565C0', '#C62828', '#AD1457', 
+      '#6A1B9A', '#4527A0', '#00838F', '#00695C', '#EF6C00',
+      '#D84315', '#4E342E', '#37474F'
+    ];
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(item == null ? "Novo Tipo de Atendimento" : "Editar Tipo"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: "Nome (Ex: RPG)"),
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text("Atendimento Ativo"),
-                value: isActive,
-                onChanged: (val) => setDialogState(() => isActive = val),
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(labelText: "Nome (Ex: RPG)"),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Color(int.parse(hexColor.replaceFirst('#', '0xFF'))),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          labelText: "Cor (HEX)",
+                          hintText: "#RRGGBB",
+                        ),
+                        onChanged: (val) {
+                          if (val.length == 7 && val.startsWith('#')) {
+                            setDialogState(() => hexColor = val);
+                          }
+                        },
+                        controller: TextEditingController(text: hexColor)..selection = TextSelection.fromPosition(TextPosition(offset: hexColor.length)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text("Cores Sugeridas:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: presetColors.map((color) => GestureDetector(
+                    onTap: () => setDialogState(() => hexColor = color),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Color(int.parse(color.replaceFirst('#', '0xFF'))),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: hexColor == color ? Colors.black : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                  )).toList(),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text("Atendimento Ativo"),
+                  value: isActive,
+                  onChanged: (val) => setDialogState(() => isActive = val),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
             TextButton(
               onPressed: () => Navigator.pop(ctx, {
                 'name': _nameCtrl.text,
+                'color': hexColor,
                 'isActive': isActive,
               }),
               child: const Text("Salvar"),
@@ -63,9 +124,9 @@ class _ServiceTypeScreenState extends State<ServiceTypeScreen> {
     if (result != null && result['name'].isNotEmpty) {
       bool success;
       if (item == null) {
-        success = await _controller.create(result['name']);
+        success = await _controller.create(result['name'], result['color']);
       } else {
-        success = await _controller.update(item.id, result['name'], result['isActive']);
+        success = await _controller.update(item.id, result['name'], result['color'], result['isActive']);
       }
 
       if (success && mounted) {

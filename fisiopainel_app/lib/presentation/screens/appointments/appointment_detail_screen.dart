@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/appointment_controller.dart';
 import '../../../domain/models/appointment_model.dart';
+import '../../widgets/toast_widget.dart';
 
 class AppointmentDetailScreen extends StatefulWidget {
   final AppointmentModel appointment;
@@ -22,8 +23,6 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
   void initState() {
     super.initState();
     _currentAppointment = widget.appointment;
-    // We don't necessarily need to load dependencies (professionals) unless we want to change professional
-    // But for now, we just want to update status.
   }
 
   Future<void> _updateStatus(String newStatus) async {
@@ -31,8 +30,6 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
 
     int? professionalId = _currentAppointment.professionalId;
 
-    // Se estiver marcando como REALIZADO, tentamos atribuir ao profissional logado
-    // caso seja um atendimento sem profissional ou reposição.
     if (newStatus == 'REALIZADO') {
       final prefs = await SharedPreferences.getInstance();
       final userIdStr = prefs.getString('user_id');
@@ -62,27 +59,23 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
              packageId: _currentAppointment.packageId,
              dateTime: _currentAppointment.dateTime,
              status: newStatus,
-             professionalId: professionalId, // Usamos o ID atualizado
-             professionalName: _currentAppointment.professionalName, // O nome virá atualizado na próxima carga
+             professionalId: professionalId,
+             professionalName: _currentAppointment.professionalName,
              patientName: _currentAppointment.patientName,
           );
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Status atualizado para $newStatus")),
-        );
-        Navigator.pop(context, true); // Return true to refresh dashboard
+        ToastUtils.show(context, "Status atualizado para $newStatus", type: ToastType.success);
+        Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text("Erro: ${_controller.error}")),
-        );
+        ToastUtils.show(context, "Erro: ${_controller.error}", type: ToastType.error);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = _currentAppointment.dateTime != null 
-        ? DateFormat('dd/MM/yyyy').format(_currentAppointment.dateTime!) 
+    final dateStr = _currentAppointment.dateTime != null
+        ? DateFormat('dd/MM/yyyy').format(_currentAppointment.dateTime!)
         : "Data não definida";
     final timeStr = _currentAppointment.dateTime != null
         ? DateFormat('HH:mm').format(_currentAppointment.dateTime!)
@@ -97,7 +90,6 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -105,7 +97,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))
+                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))  
                 ],
                 border: Border.all(color: Colors.grey.shade200)
               ),
@@ -116,7 +108,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     backgroundColor: Colors.blue[100],
                     child: Text(
                       _currentAppointment.patientName?.substring(0, 1).toUpperCase() ?? "P",
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue[800]),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue[800]),     
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -147,26 +139,24 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
 
             const SizedBox(height: 30),
 
-            // Details
             _buildDetailRow(Icons.calendar_today, "Data", dateStr),
             const Divider(),
             _buildDetailRow(Icons.access_time, "Horário", timeStr),
             const Divider(),
             _buildDetailRow(Icons.medical_services, "Profissional", _currentAppointment.professionalName ?? "Não atribuído"),
             const Divider(),
-            
+
             const Spacer(),
 
-            // Actions
-            if (_currentAppointment.status != 'REALIZADO' && _currentAppointment.status != 'CANCELADO') ...[
+            if (_currentAppointment.status != 'REALIZADO' && _currentAppointment.status != 'CANCELADO') ...[    
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : () => _updateStatus('REALIZADO'),
                   icon: const Icon(Icons.check_circle),
-                  label: _isLoading 
-                      ? const CircularProgressIndicator(color: Colors.white) 
+                  label: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
                       : const Text("MARCAR COMO REALIZADO", style: TextStyle(fontSize: 16)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[600],
@@ -208,11 +198,11 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                   ),
                 ],
               )
-            ] else 
+            ] else
               Center(
                  child: Text(
                    "Este agendamento está ${_currentAppointment.status.toLowerCase()}.",
-                   style: const TextStyle(color: Colors.grey, fontSize: 16, fontStyle: FontStyle.italic),
+                   style: const TextStyle(color: Colors.grey, fontSize: 16, fontStyle: FontStyle.italic),       
                  ),
               )
           ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/string_utils.dart';
 import '../../data/repositories/appointment_repository.dart';
 import '../../domain/models/package_model.dart';
 import '../../domain/models/patient_model.dart';
@@ -21,20 +22,67 @@ class PackageController extends ChangeNotifier {
   List<ServiceTypeModel> serviceTypesList = [];
 
   bool isLoading = false;
+  bool isLoadingMore = false;
+  bool hasMore = true;
+  int currentPage = 1;
   String error = '';
 
   // Carrega TUDO: Pacotes, Pacientes e Tipos
   Future<void> loadData() async {
+    if (isLoading) return; // Evita chamadas duplicadas simultaneas
+
     isLoading = true;
+    error = '';
+    currentPage = 1;
+    hasMore = true;
+
+    // Limpa dados atuais para garantir consistencia
+    packages.clear();
+    filteredPackages.clear();
+    patientsList.clear();
+    professionalsList.clear();
+    serviceTypesList.clear();
+
     notifyListeners();
 
     try {
-      await Future.wait([_fetchPackages(), _fetchDependencies()]);
+      // Carregamento sequencial para facilitar diagnostico de onde trava
+      await _fetchInitialPackages();
+      await _fetchDependencies();
+
       filteredPackages = List.from(packages);
     } catch (e) {
-      error = e.toString();
+      error = "Falha ao carregar dados: ${e.toString()}";
+      print("Error in PackageController.loadData: $e");
     } finally {
       isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (isLoadingMore || !hasMore || isLoading) return;
+
+    isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      currentPage++;
+      final morePackages = await _repo.getPackages(page: currentPage);
+      if (morePackages.isEmpty) {
+        hasMore = false;
+      } else {
+        packages.addAll(morePackages);
+        filteredPackages = List.from(packages);
+        // Se veio menos que 20, não tem mais páginas
+        hasMore = morePackages.length >= 20;
+      }
+    } catch (e) {
+      error = "Erro ao carregar mais: ${e.toString()}";
+      currentPage--;
+      hasMore = false;
+    } finally {
+      isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -45,17 +93,14 @@ class PackageController extends ChangeNotifier {
       bool matchesDate = true;
 
       if (query != null && query.isNotEmpty) {
-        final q = query.toLowerCase();
-        final pName = (pkg.patientName ?? '').toLowerCase();
-        final sName = (pkg.serviceName ?? '').toLowerCase();
-        matchesQuery = pName.contains(q) || sName.contains(q);
+        matchesQuery = StringUtils.containsAccentInsensitive(pkg.patientName ?? '', query) ||
+            StringUtils.containsAccentInsensitive(pkg.serviceName ?? '', query);
       }
 
       if (start != null && pkg.startDate != null) {
         matchesDate = pkg.startDate!.isAfter(start) || pkg.startDate!.isAtSameMomentAs(start);
       }
       if (matchesDate && end != null && pkg.startDate != null) {
-        // Para incluir o dia final completo
         final endOfDay = DateTime(end.year, end.month, end.day, 23, 59, 59);
         matchesDate = pkg.startDate!.isBefore(endOfDay);
       }
@@ -65,32 +110,46 @@ class PackageController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _fetchPackages() async {
-    packages = await _repo.getPackages();
+  Future<void> _fetchInitialPackages() async {
+    try {
+      packages = await _repo.getPackages(page: 1);
+      // Se retornou menos que 20, ja sabemos que nao tem mais paginas
+      hasMore = packages.length >= 20;
+    } catch (e) {
+      throw Exception("Pacotes: $e");
+    }
   }
 
   Future<void> _fetchDependencies() async {
-    // Reutiliza o repositório de pacientes que já criamos
-    patientsList = await _patientRepo.getPatients();
-    professionalsList = await _professionalRepo.getProfessionals();
-    serviceTypesList = await _repo.getServiceTypes();
+    try {
+      patientsList = await _patientRepo.getPatients();
+    } catch (e) {
+      throw Exception("Pacientes: $e");
+    }
+
+    try {
+      professionalsList = await _professionalRepo.getProfessionals();
+    } catch (e) {
+      throw Exception("Profissionais: $e");
+    }
+
+    try {
+      serviceTypesList = await _repo.getServiceTypes();
+    } catch (e) {
+      throw Exception("Tipos de Serviço: $e");
+    }
   }
 
   Future<bool> createPackage(PackageModel package) async {
     isLoading = true;
     notifyListeners();
     try {
-      // 1. Cria o pacote e obtém o modelo de retorno com o ID
       await _repo.createPackage(package);
-
-      // 2. (Removido) Criação automática de agendamentos
-
-      // 3. Recarrega a lista de pacotes para exibir o novo
-      await _fetchPackages();
+      await loadData();
       return true;
     } catch (e) {
       error = e.toString();
-      return false; // O finally vai cuidar do notifyListeners e isLoading
+      return false;
     } finally {
       isLoading = false;
       notifyListeners();
@@ -102,11 +161,10 @@ class PackageController extends ChangeNotifier {
     notifyListeners();
     try {
       await _repo.updatePackage(package);
-      await _fetchPackages(); // Recarrega a lista
+      await loadData();
       return true;
     } catch (e) {
       error = e.toString();
-      notifyListeners();
       return false;
     } finally {
       isLoading = false;
@@ -119,7 +177,6 @@ class PackageController extends ChangeNotifier {
     notifyListeners();
     try {
       await _repo.deletePackage(id);
-      // Remove localmente para sumir instantaneamente da tela
       packages.removeWhere((p) => p.id == id);
       filteredPackages.removeWhere((p) => p.id == id);
       return true;

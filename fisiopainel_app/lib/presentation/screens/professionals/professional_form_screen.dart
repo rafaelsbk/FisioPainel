@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../../../domain/models/professional_model.dart';
 import '../../controllers/professional_controller.dart';
 import '../../../domain/models/user_role_model.dart';
 import '../../widgets/cpf_formatter.dart';
 import '../../widgets/phone_formatter.dart';
+import '../../widgets/currency_formatter.dart';
+import '../../widgets/string_utils.dart';
 
 class ProfessionalFormScreen extends StatefulWidget {
   final ProfessionalController controller;
@@ -60,11 +63,12 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
       _emailCtrl.text = p.email;
       _phoneCtrl.text = PhoneInputFormatter.format(p.phoneNumber);
       _cpfCtrl.text = CpfInputFormatter.format(p.cpf);
+      final nf = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$ ');
       _crefitoCtrl.text = p.crefito;
-      _percentualCtrl.text = p.percentualRepasse?.toString() ?? '';
-      _valorRepasseFixoCtrl.text = p.valorRepasseFixo?.toString() ?? '';
-      _percentualTaxaReposicaoCtrl.text = p.percentualTaxaReposicao?.toString() ?? '';
-      _valorTaxaReposicaoFixoCtrl.text = p.valorTaxaReposicaoFixo?.toString() ?? '';
+      _percentualCtrl.text = p.percentualRepasse != null ? nf.format(p.percentualRepasse) : '';
+      _valorRepasseFixoCtrl.text = p.valorRepasseFixo != null ? nf.format(p.valorRepasseFixo) : '';
+      _percentualTaxaReposicaoCtrl.text = p.percentualTaxaReposicao != null ? nf.format(p.percentualTaxaReposicao) : '';
+      _valorTaxaReposicaoFixoCtrl.text = p.valorTaxaReposicaoFixo != null ? nf.format(p.valorTaxaReposicaoFixo) : '';
       _selectedRoleId = p.usersRoles?.id;
 
       if (p.valorRepasseFixo != null && p.valorRepasseFixo! > 0) {
@@ -163,17 +167,17 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
       }
 
       double? percentualRepasse = _repasseTipo == RepasseTipo.porcentagem
-          ? double.tryParse(_percentualCtrl.text.replaceAll(',', '.'))
+          ? StringUtils.parseCurrency(_percentualCtrl.text)
           : null;
       double? valorRepasseFixo = _repasseTipo == RepasseTipo.fixo
-          ? double.tryParse(_valorRepasseFixoCtrl.text.replaceAll(',', '.'))
+          ? StringUtils.parseCurrency(_valorRepasseFixoCtrl.text)
           : null;
 
       double? percentualReposicao = _taxaReposicaoTipo == TaxaReposicaoTipo.porcentagem
-          ? double.tryParse(_percentualTaxaReposicaoCtrl.text.replaceAll(',', '.'))
+          ? StringUtils.parseCurrency(_percentualTaxaReposicaoCtrl.text)
           : null;
       double? valorReposicaoFixo = _taxaReposicaoTipo == TaxaReposicaoTipo.fixo
-          ? double.tryParse(_valorTaxaReposicaoFixoCtrl.text.replaceAll(',', '.'))
+          ? StringUtils.parseCurrency(_valorTaxaReposicaoFixoCtrl.text)
           : null;
 
       final newProfessional = ProfessionalModel(
@@ -392,8 +396,11 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                       if (_repasseTipo == RepasseTipo.porcentagem)
                         TextFormField(
                           controller: _percentualCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            CurrencyInputFormatter(),
+                          ],
                           decoration: const InputDecoration(
                             labelText: '% Repasse',
                             prefixIcon: Icon(Icons.percent),
@@ -402,9 +409,11 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                       else
                         TextFormField(
                           controller: _valorRepasseFixoCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                          decoration: const InputDecoration(
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            CurrencyInputFormatter(),
+                          ],                          decoration: const InputDecoration(
                             labelText: 'Valor Repasse Fixo (R\$)',
                             prefixIcon: Icon(Icons.attach_money),
                           ),
@@ -442,8 +451,11 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                       if (_taxaReposicaoTipo == TaxaReposicaoTipo.porcentagem)
                         TextFormField(
                           controller: _percentualTaxaReposicaoCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            CurrencyInputFormatter(),
+                          ],
                           decoration: const InputDecoration(
                             labelText: '% Taxa Reposição',
                             prefixIcon: Icon(Icons.percent),
@@ -452,8 +464,11 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                       else
                         TextFormField(
                           controller: _valorTaxaReposicaoFixoCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            CurrencyInputFormatter(),
+                          ],
                           decoration: const InputDecoration(
                             labelText: 'Valor Taxa Reposição Fixo (R\$)',
                             prefixIcon: Icon(Icons.attach_money),

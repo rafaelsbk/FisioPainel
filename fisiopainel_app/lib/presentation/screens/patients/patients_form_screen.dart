@@ -6,6 +6,7 @@ import '../../../domain/models/patient_model.dart';
 import '../../controllers/patient_controller.dart';
 import '../../widgets/cpf_formatter.dart';
 import '../../widgets/phone_formatter.dart';
+import '../../widgets/toast_widget.dart';
 
 class PatientFormScreen extends StatefulWidget {
   final PatientController controller;
@@ -24,7 +25,6 @@ class PatientFormScreen extends StatefulWidget {
 class _PatientFormScreenState extends State<PatientFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _cpfCtrl = TextEditingController();
@@ -54,8 +54,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       _nameCtrl.text = p.completeName;
       _emailCtrl.text = p.email ?? '';
       _cpfCtrl.text = CpfInputFormatter.format(p.cpf ?? '');
-      
-      // Carregar telefones da lista ou do campo antigo
+
       if (p.phones != null && p.phones!.isNotEmpty) {
         for (var phone in p.phones!) {
           _phoneCtrls.add(TextEditingController(text: PhoneInputFormatter.format(phone.number)));
@@ -76,7 +75,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       _complementCtrl.text = p.complemento ?? '';
     }
 
-    // Garantir pelo menos um campo de telefone
     if (_phoneCtrls.isEmpty) {
       _phoneCtrls.add(TextEditingController());
     }
@@ -121,9 +119,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         final data = jsonDecode(response.body);
         if (data['erro'] == true) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('CEP não encontrado')),
-            );
+            ToastUtils.show(context, 'CEP não encontrado', type: ToastType.warning);
           }
         } else {
           setState(() {
@@ -135,6 +131,9 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         }
       }
     } catch (e) {
+      if (mounted) {
+        ToastUtils.show(context, 'Erro ao buscar CEP', type: ToastType.error);
+      }
     } finally {
       if (mounted) setState(() => _isCepLoading = false);
     }
@@ -147,7 +146,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       return;
     }
 
-    // Procura duplicados na lista do controller
     PatientModel? duplicate;
     for (var p in widget.controller.allPatients) {
       final pCpfRaw = p.cpf?.replaceAll(RegExp(r'\D'), '') ?? '';
@@ -160,8 +158,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     if (duplicate != null) {
       final errorMsg = 'CPF JÁ CADASTRADO, NO NOME ${duplicate.completeName}';
       setState(() => _cpfError = errorMsg);
-      
-      // Mostrar Modal
+
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -255,7 +252,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- CABEÇALHO ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -275,7 +271,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             ),
             const Divider(height: 32),
 
-            // --- CONTEÚDO ---
             Flexible(
               child: SingleChildScrollView(
                 child: Form(
@@ -283,7 +278,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // SEÇÃO: IDENTIFICAÇÃO
                       const _SectionHeader(title: 'Identificação', icon: Icons.person_outline),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -327,8 +321,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
 
                       const SizedBox(height: 32),
 
-                      // SEÇÃO: CONTATO E ENDEREÇO
-                      const _SectionHeader(title: 'Contato e Endereço', icon: Icons.contact_mail_outlined),
+                      const _SectionHeader(title: 'Contato e Endereço', icon: Icons.contact_mail_outlined),    
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _emailCtrl,
@@ -465,7 +458,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
 
                       const SizedBox(height: 32),
 
-                      // SEÇÃO: STATUS
                       if (widget.patientToEdit != null) ...[
                         const _SectionHeader(title: 'Configurações', icon: Icons.settings_outlined),
                         const SizedBox(height: 8),
@@ -473,7 +465,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                           contentPadding: EdgeInsets.zero,
                           title: const Text('Paciente Ativo'),
                           subtitle: Text(
-                            _isActive ? 'Habilitado para novos pacotes' : 'Desabilitado pela administração',
+                            _isActive ? 'Habilitado para novos pacotes' : 'Desabilitado pela administração',  
                             style: const TextStyle(fontSize: 12),
                           ),
                           value: _isActive,
@@ -484,7 +476,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
 
                       const SizedBox(height: 32),
 
-                      // BOTÃO DE AÇÃO
                       SizedBox(
                         width: double.infinity,
                         height: 55,
@@ -499,7 +490,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                           child: widget.controller.isLoading
                               ? const CircularProgressIndicator(color: Colors.white)
                               : Text(
-                                  widget.patientToEdit == null ? 'CADASTRAR PACIENTE' : 'SALVAR ALTERAÇÕES',
+                                  widget.patientToEdit == null ? 'CADASTRAR PACIENTE' : 'SALVAR ALTERAÇÕES',  
                                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
                         ),

@@ -4,9 +4,9 @@ import 'package:fisiopainel_app/domain/models/patient_model.dart';
 import 'package:fisiopainel_app/domain/models/service_type_model.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:fisiopainel_app/presentation/widgets/serene_cards.dart';
 import '../../controllers/package_controller.dart';
 import 'package_form_screen.dart';
-import 'bulk_schedule_dialog.dart';
 import 'edit_appointment_dialog.dart';
 import '../../../domain/models/package_model.dart';
 
@@ -21,6 +21,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
   final PackageController _controller = PackageController();
   final AppointmentRepository _appointmentRepo = AppointmentRepository();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   final Map<int, List<AppointmentModel>> _appointmentsMap = {};
   final Map<int, bool> _isLoadingAppointments = {};
@@ -33,16 +34,27 @@ class _PackagesScreenState extends State<PackagesScreen> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _controller.addListener(_onControllerChange);
+    _scrollController.addListener(_onScroll);
     _controller.loadData();
+  }
+
+  void _onControllerChange() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onControllerChange);
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _controller.loadMore();
+    }
   }
 
   void _onSearchChanged() {
@@ -76,11 +88,10 @@ class _PackagesScreenState extends State<PackagesScreen> {
   void _toggleSearchMode() {
     setState(() {
       _isDateSearchMode = !_isDateSearchMode;
-      // Limpa os filtros ao trocar
       _searchController.clear();
       _startDate = null;
       _endDate = null;
-      _controller.filter(); // Reseta a lista
+      _controller.filter();
     });
   }
 
@@ -94,29 +105,18 @@ class _PackagesScreenState extends State<PackagesScreen> {
     );
 
     if (result == true && mounted) {
-      // 1. Recarrega a lista de pacotes no controlador
       await _controller.loadData();
-      
+
       if (package != null && package.id != null) {
-        // 2. Limpa o cache local e busca agendamentos atualizados do banco
         setState(() {
           _appointmentsMap.remove(package.id);
         });
         await _fetchAppointmentsForPackage(package.id!);
       }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(package == null ? "Pacote criado com sucesso!" : "Pacote atualizado com sucesso!"),
-          backgroundColor: Colors.teal,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
   }
 
   void _deletePackage(PackageModel pkg) async {
-    // 1. Verifica se já temos os agendamentos carregados para checar sessões realizadas
     if (_appointmentsMap[pkg.id] == null) {
       await _fetchAppointmentsForPackage(pkg.id!);
     }
@@ -173,23 +173,6 @@ class _PackagesScreenState extends State<PackagesScreen> {
     }
   }
 
-  void _openBulkSchedule(int packageId, int maxSessions) async {
-    if (_appointmentsMap[packageId] == null) await _fetchAppointmentsForPackage(packageId);
-    final currentAppointments = _appointmentsMap[packageId]?.length ?? 0;
-    
-    if (currentAppointments >= maxSessions) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Todas as sessões já foram utilizadas."), backgroundColor: Colors.orange));
-      return;
-    }
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => BulkScheduleDialog(packageId: packageId, totalSessions: maxSessions, existingSessionsCount: currentAppointments),
-    );
-
-    if (result == true) _fetchAppointmentsForPackage(packageId);
-  }
-
   void _editAppointment(AppointmentModel appointment) async {
     final result = await showDialog<bool>(
       context: context,
@@ -203,15 +186,27 @@ class _PackagesScreenState extends State<PackagesScreen> {
     switch (status.toUpperCase()) {
       case 'REALIZADO': color = Colors.teal; break;
       case 'AGENDADO': color = Colors.blue; break;
-      case 'FALTA': color = Colors.orange; break;
-      case 'CANCELADO': color = Colors.redAccent; break;
+      case 'FALTA': color = Colors.redAccent; break;
+      case 'REMARCADO': case 'REMARCAÇÃO': color = Colors.amber; break;
+      case 'CANCELADO': color = Colors.grey; break;
       default: color = Colors.grey;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),        
       child: Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
+  }
+
+  String _getPaymentMethodLabel(String method) {
+    switch (method.toUpperCase()) {
+      case 'DEBITO': return 'Débito';
+      case 'CREDITO': return 'Crédito';
+      case 'PIX': return 'PIX';
+      case 'ESPECIE': return 'Espécie';
+      case 'OUTROS': return 'Outros';
+      default: return method;
+    }
   }
 
   @override
@@ -238,7 +233,6 @@ class _PackagesScreenState extends State<PackagesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
-            // --- BARRA DE BUSCA ---
             Row(
               children: [
                 Expanded(
@@ -309,158 +303,177 @@ class _PackagesScreenState extends State<PackagesScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4.0),
+              child: SessionLegend(),
+            ),
+            const SizedBox(height: 12),
             Expanded(
               child: _controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : RefreshIndicator(
                       onRefresh: _controller.loadData,
-                      child: _controller.filteredPackages.isEmpty
+                      child: _controller.error.isNotEmpty
                           ? ListView(
-                              physics: const AlwaysScrollableScrollPhysics(),
                               children: [
                                 SizedBox(height: MediaQuery.of(context).size.height * 0.2),
                                 Center(
                                   child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[300]),
+                                      const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
                                       const SizedBox(height: 16),
-                                      Text(_controller.packages.isEmpty 
-                                          ? "Nenhum pacote registrado."
-                                          : "Nenhum pacote encontrado para os filtros.", 
-                                          style: TextStyle(color: Colors.grey[500])),
+                                      Text("Erro: ${_controller.error}", 
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(color: Colors.redAccent)),
+                                      TextButton(onPressed: _controller.loadData, child: const Text("TENTAR NOVAMENTE"))
                                     ],
                                   ),
-                                ),
+                                )
                               ],
                             )
-                          : ListView.builder(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.only(bottom: 20),
-                              itemCount: _controller.filteredPackages.length,
-                              itemBuilder: (context, index) {
-                            final pkg = _controller.filteredPackages[index];
-                            final isExpanded = _isExpandedMap[pkg.id] ?? false;
-                            
-                            final patientName = _controller.patientsList
-                                .firstWhere((p) => p.id == pkg.patientId, orElse: () => PatientModel(id: 0, completeName: 'Desconhecido'))
-                                .completeName;
-                            final serviceName = _controller.serviceTypesList
-                                .firstWhere((s) => s.id == pkg.serviceTypeId, orElse: () => ServiceTypeModel(id: 0, name: 'Desconhecido'))
-                                .name;
-
-                            final appointmentsCount = _appointmentsMap[pkg.id]?.length ?? 0;
-                            final progress = pkg.quantity > 0 ? appointmentsCount / pkg.quantity : 0.0;
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                              ),
-                              child: Column(
-                                children: [
-                                  ListTile(
-                                    contentPadding: const EdgeInsets.all(16),
-                                    onTap: () {
-                                      setState(() => _isExpandedMap[pkg.id!] = !isExpanded);
-                                      if (!isExpanded && _appointmentsMap[pkg.id] == null) _fetchAppointmentsForPackage(pkg.id!);
-                                    },
-                                    title: Text(patientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                    subtitle: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(serviceName, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 13)),
-                                        const SizedBox(height: 4),
-                                        Text('R\$ ${pkg.totalValue.toStringAsFixed(2)} | ${pkg.quantity} sessões', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                        const SizedBox(height: 12),
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(2),
-                                          child: LinearProgressIndicator(
-                                            value: progress,
-                                            backgroundColor: Colors.grey[100],
-                                            color: appointmentsCount >= pkg.quantity ? Colors.teal : Colors.blue,
-                                            minHeight: 4,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(isExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.grey),
-                                        const SizedBox(width: 8),
-                                        PopupMenuButton<String>(
-                                          onSelected: (value) {
-                                            if (value == 'edit') _openForm(package: pkg);
-                                            if (value == 'delete') _deletePackage(pkg);
-                                            if (value == 'bulk') _openBulkSchedule(pkg.id!, pkg.quantity);
-                                          },
-                                          itemBuilder: (context) => [
-                                            const PopupMenuItem(
-                                              value: 'bulk',
-                                              child: ListTile(
-                                                leading: Icon(Icons.playlist_add, color: Colors.blue),
-                                                title: Text('Agendar Lote'),
-                                                contentPadding: EdgeInsets.zero,
-                                                dense: true,
-                                              ),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'edit',
-                                              child: ListTile(
-                                                leading: Icon(Icons.edit_outlined, color: Colors.orange),
-                                                title: Text('Editar Pacote'),
-                                                contentPadding: EdgeInsets.zero,
-                                                dense: true,
-                                              ),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'delete',
-                                              child: ListTile(
-                                                leading: Icon(Icons.delete_outline, color: Colors.redAccent),
-                                                title: Text('Excluir Pacote'),
-                                                contentPadding: EdgeInsets.zero,
-                                                dense: true,
-                                              ),
-                                            ),
-                                          ],
-                                          icon: const Icon(Icons.more_vert, color: Colors.grey),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (isExpanded) ...[
-                                    const Divider(height: 1),
-                                    if (_isLoadingAppointments[pkg.id] ?? false)
-                                      const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
-                                    else if (_appointmentsMap[pkg.id] == null || _appointmentsMap[pkg.id]!.isEmpty)
-                                      const Padding(padding: EdgeInsets.all(16), child: Text('Nenhum agendamento realizado.', style: TextStyle(fontSize: 12, color: Colors.grey)))
-                                    else
-                                      ListView.builder(
-                                        shrinkWrap: true,
-                                        physics: const NeverScrollableScrollPhysics(),
-                                        itemCount: _appointmentsMap[pkg.id]!.length,
-                                        itemBuilder: (context, i) {
-                                          final appt = _appointmentsMap[pkg.id]![i];
-                                          return ListTile(
-                                            dense: true,
-                                            onTap: () => _editAppointment(appt),
-                                            leading: const Icon(Icons.calendar_today_outlined, size: 16),
-                                            title: Text(appt.dateTime != null ? DateFormat('dd/MM/yyyy HH:mm').format(appt.dateTime!) : 'Data inválida', style: const TextStyle(fontSize: 13)),
-                                            trailing: _buildStatusChip(appt.status),
-                                          );
-                                        },
+                          : _controller.filteredPackages.isEmpty
+                              ? ListView(
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  children: [
+                                    SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                                    Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[300]),      
+                                          const SizedBox(height: 16),
+                                          Text(_controller.packages.isEmpty
+                                              ? "Nenhum pacote registrado."
+                                              : "Nenhum pacote encontrado para os filtros.",
+                                              style: TextStyle(color: Colors.grey[500])),
+                                        ],
                                       ),
-                                    const SizedBox(height: 16),
-                                  ]
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                                    ),
+                                  ],
+                                )
+                              : ListView.builder(
+                                  controller: _scrollController,
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  itemCount: _controller.filteredPackages.length + (_controller.hasMore ? 1 : 0),
+                                  itemBuilder: (context, index) {
+                                    if (index == _controller.filteredPackages.length) {
+                                        return const Padding(
+                                          padding: EdgeInsets.symmetric(vertical: 16),
+                                          child: Center(child: CircularProgressIndicator()),
+                                        );
+                                    }
+
+                                    final pkg = _controller.filteredPackages[index];
+                                    final isExpanded = _isExpandedMap[pkg.id] ?? false;
+
+                                    final patientName = _controller.patientsList
+                                        .firstWhere((p) => p.id == pkg.patientId, orElse: () => PatientModel(id: 0, completeName: 'Desconhecido'))
+                                        .completeName;
+                                    final serviceName = _controller.serviceTypesList
+                                        .firstWhere((s) => s.id == pkg.serviceTypeId, orElse: () => ServiceTypeModel(id: 0, name: 'Desconhecido'))
+                                        .name;
+
+                                    final appointmentsCount = _appointmentsMap[pkg.id]?.length ?? 0;
+                                    final progress = pkg.quantity > 0 ? appointmentsCount / pkg.quantity : 0.0;
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          ListTile(
+                                            contentPadding: const EdgeInsets.all(16),
+                                            onTap: () {
+                                              setState(() => _isExpandedMap[pkg.id!] = !isExpanded);
+                                              if (!isExpanded && _appointmentsMap[pkg.id] == null) _fetchAppointmentsForPackage(pkg.id!);
+                                            },
+                                            title: Text(patientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                            subtitle: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(serviceName, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'R\$ ${pkg.totalValue.toStringAsFixed(2)} | ${pkg.quantity} sessões${pkg.paymentMethod != null ? ' | ${_getPaymentMethodLabel(pkg.paymentMethod!)}' : ''}',
+                                                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                                ),
+                                                const SizedBox(height: 12),
+                                                SessionProgressBar(
+                                                  totalSessions: pkg.quantity,
+                                                  sessionStatuses: pkg.statusAgendamentos,
+                                                ),
+                                              ],
+                                            ),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(isExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.grey),
+                                                const SizedBox(width: 8),
+                                                PopupMenuButton<String>(
+                                                  onSelected: (value) {
+                                                    if (value == 'edit') _openForm(package: pkg);
+                                                    if (value == 'delete') _deletePackage(pkg);
+                                                  },
+                                                  itemBuilder: (context) => [
+                                                    const PopupMenuItem(
+                                                      value: 'edit',
+                                                      child: ListTile(
+                                                        leading: Icon(Icons.edit_outlined, color: Colors.orange),       
+                                                        title: Text('Editar Pacote'),
+                                                        contentPadding: EdgeInsets.zero,
+                                                        dense: true,
+                                                      ),
+                                                    ),
+                                                    const PopupMenuItem(
+                                                      value: 'delete',
+                                                      child: ListTile(
+                                                        leading: Icon(Icons.delete_outline, color: Colors.redAccent),   
+                                                        title: Text('Excluir Pacote'),
+                                                        contentPadding: EdgeInsets.zero,
+                                                        dense: true,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  icon: const Icon(Icons.more_vert, color: Colors.grey),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          if (isExpanded) ...[
+                                            const Divider(height: 1),
+                                            if (_isLoadingAppointments[pkg.id] ?? false)
+                                              const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
+                                            else if (_appointmentsMap[pkg.id] == null || _appointmentsMap[pkg.id]!.isEmpty)
+                                              const Padding(padding: EdgeInsets.all(16), child: Text('Nenhum agendamento realizado.', style: TextStyle(fontSize: 12, color: Colors.grey)))
+                                            else
+                                              ListView.builder(
+                                                shrinkWrap: true,
+                                                physics: const NeverScrollableScrollPhysics(),
+                                                itemCount: _appointmentsMap[pkg.id]!.length,
+                                                itemBuilder: (context, i) {
+                                                  final appt = _appointmentsMap[pkg.id]![i];
+                                                  return ListTile(
+                                                    dense: true,
+                                                    onTap: () => _editAppointment(appt),
+                                                    leading: const Icon(Icons.calendar_today_outlined, size: 16),       
+                                                    title: Text(appt.dateTime != null ? DateFormat('dd/MM/yyyy HH:mm').format(appt.dateTime!) : 'Data inválida', style: const TextStyle(fontSize: 13)),
+                                                    trailing: _buildStatusChip(appt.status),
+                                                  );
+                                                },
+                                              ),
+                                            const SizedBox(height: 16),
+                                          ]
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
                     ),
             ),
           ],

@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     'users.apps.UsersConfig',
     'rest_framework',
     'rest_framework_simplejwt',
@@ -104,11 +105,11 @@ DATABASES = {
     }
 }
 
-# Configurações JWT (Baseado no seu serializers.py e settings anterior)
+# ConfiguraÃ§Ãµes JWT (Baseado no seu serializers.py e settings anterior)
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
 }
 
 SIMPLE_JWT = {
@@ -121,3 +122,9 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'users.User'
 STATIC_URL = 'static/'
+
+# --- LOCALIZAÇÃO ---
+LANGUAGE_CODE = 'pt-br'
+TIME_ZONE = 'America/Sao_Paulo'
+USE_I18N = True
+USE_TZ = True

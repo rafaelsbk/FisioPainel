@@ -21,11 +21,11 @@ class ServiceTypeController extends ChangeNotifier {
     }
   }
 
-  Future<bool> create(String name) async {
+  Future<bool> create(String name, String color) async {
     isLoading = true;
     notifyListeners();
     try {
-      await _repo.createServiceType(name);
+      await _repo.createServiceType(name, color);
       await loadData();
       return true;
     } catch (e) {
@@ -37,11 +37,11 @@ class ServiceTypeController extends ChangeNotifier {
     }
   }
 
-  Future<bool> update(int id, String name, bool isActive) async {
+  Future<bool> update(int id, String name, String color, bool isActive) async {
     isLoading = true;
     notifyListeners();
     try {
-      await _repo.updateServiceType(id, name, isActive);
+      await _repo.updateServiceType(id, name, color, isActive);
       await loadData();
       return true;
     } catch (e) {

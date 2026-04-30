@@ -10,6 +10,8 @@ class PatientsScreen extends StatefulWidget {
   State<PatientsScreen> createState() => _PatientsScreenState();
 }
 
+class _PackagesScreenState {} // Ignorar, erro de copia anterior
+
 class _PatientsScreenState extends State<PatientsScreen> {
   final PatientController _controller = PatientController();
   final TextEditingController _searchController = TextEditingController();
@@ -40,14 +42,17 @@ class _PatientsScreenState extends State<PatientsScreen> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _controller.addListener(_onControllerChange);
     _controller.fetchPatients();
+  }
+
+  void _onControllerChange() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onControllerChange);
     _searchController.dispose();
     super.dispose();
   }
@@ -75,7 +80,6 @@ class _PatientsScreenState extends State<PatientsScreen> {
         child: Column(
           children: [
             const SizedBox(height: 16),
-            // --- BARRA DE BUSCA ---
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -91,19 +95,35 @@ class _PatientsScreenState extends State<PatientsScreen> {
               ),
               onChanged: (val) {
                 _controller.filter(val);
-                setState(() {});
               },
             ),
 
             const SizedBox(height: 24),
 
-            // --- LISTA DE PACIENTES ---
             Expanded(
               child: _controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : RefreshIndicator(
                       onRefresh: _controller.fetchPatients,
-                      child: _controller.filteredPatients.isEmpty
+                      child: _controller.error.isNotEmpty
+                          ? ListView(
+                              children: [
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                                Center(
+                                  child: Column(
+                                    children: [
+                                      const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
+                                      const SizedBox(height: 16),
+                                      Text("Erro: ${_controller.error}", 
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(color: Colors.redAccent)),
+                                      TextButton(onPressed: _controller.fetchPatients, child: const Text("TENTAR NOVAMENTE"))
+                                    ],
+                                  ),
+                                )
+                              ],
+                            )
+                          : _controller.filteredPatients.isEmpty
                           ? ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
                               children: [
@@ -158,7 +178,8 @@ class _PatientsScreenState extends State<PatientsScreen> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          if (!patient.isActive)                                            Padding(
+                                          if (!patient.isActive)
+                                            Padding(
                                               padding: const EdgeInsets.only(left: 8.0),
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
