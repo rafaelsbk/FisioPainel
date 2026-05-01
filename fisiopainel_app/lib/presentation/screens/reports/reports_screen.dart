@@ -269,8 +269,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     icon: const Icon(Icons.search),
                     label: const Text("GERAR RELATÓRIO"),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue[800],
-                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
@@ -279,19 +277,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     flex: 1,
-                    child: OutlinedButton.icon(
+                    child: ElevatedButton.icon(
                       onPressed: _isPdfLoading ? null : _downloadPdf,
                       icon: _isPdfLoading
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Icon(Icons.picture_as_pdf),
                       label: const Text("PDF"),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red[700],
-                        side: BorderSide(color: Colors.red[700]!),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.tertiary,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
