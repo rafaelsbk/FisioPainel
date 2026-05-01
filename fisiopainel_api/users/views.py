@@ -21,7 +21,7 @@ def get_filtered_pacotes(user, query=None, start_date=None, end_date=None, profi
         queryset = Pacote.objects.filter(
             Q(criado_por=user) |
             Q(paciente__profissional_responsavel=user) |
-            Q(agendamentos__professional=user)
+            Q(agendamentos__profissional=user)
         ).distinct()
 
     if query:
@@ -593,7 +593,7 @@ class RelatorioViewSet(viewsets.ViewSet):
                     elif RP.percentual_taxa_reposicao and RP.percentual_taxa_reposicao > 0:
                         rp_replacement_fee = valor_sessao * (RP.percentual_taxa_reposicao / Decimal('100.00'))
 
-                if str(RP.id) == str(profissional_id):
+                if RP and str(RP.id) == str(profissional_id):
                     # Caso A: O profissional do relatório REALIZOU o atendimento
                     if RP != PO:
                         is_reposicao = True
