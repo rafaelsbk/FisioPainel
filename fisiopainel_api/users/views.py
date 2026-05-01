@@ -11,7 +11,7 @@ from .models import User, Paciente, TipoAtendimento, Pacote, Agendamento, Solici
 from .serializers import UserSerializer, PacienteSerializer, TipoAtendimentoSerializer, PacoteSerializer, AgendamentoSerializer, SolicitacaoAgendamentoSerializer, UserRoleSerializer
 from .permissions import IsAdminRole, IsProfessionalOwnerOrAdmin, IsFinanceiroOrAdmin
 
-def get_filtered_pacotes(user, query=None):
+def get_filtered_pacotes(user, query=None, start_date=None, end_date=None, profissional_id=None, tipo_atendimento_id=None):
     """Helper para filtrar pacotes baseado na role e relacionamento do usuário."""
     if user.is_superuser or (user.users_roles and user.users_roles.visualizar_tudo):
         queryset = Pacote.objects.all()
@@ -30,27 +30,48 @@ def get_filtered_pacotes(user, query=None):
             Q(tipo_atendimento__nome_atendimento__unaccent__icontains=query)
         )
 
+    if start_date and end_date:
+        # Filtra por data_pagamento se existir, caso contrário data_criacao
+        queryset = queryset.filter(
+            Q(data_pagamento__date__range=[start_date, end_date]) |
+            Q(data_pagamento__isnull=True, data_criacao__date__range=[start_date, end_date])
+        )
+
+    if profissional_id:
+        queryset = queryset.filter(profissional_id=profissional_id)
+    
+    if tipo_atendimento_id:
+        queryset = queryset.filter(tipo_atendimento_id=tipo_atendimento_id)
+
     return queryset.order_by('paciente__complete_name')
 
 class FinanceiroViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsFinanceiroOrAdmin]
 
     def get_queryset(self):
-        return get_filtered_pacotes(self.request.user)
+        query = self.request.query_params.get('q')
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        profissional_id = self.request.query_params.get('profissional_id')
+        tipo_atendimento_id = self.request.query_params.get('tipo_atendimento_id')
+        return get_filtered_pacotes(
+            self.request.user, 
+            query=query, 
+            start_date=start_date, 
+            end_date=end_date,
+            profissional_id=profissional_id,
+            tipo_atendimento_id=tipo_atendimento_id
+        )
 
     @action(detail=False, methods=['get'])
     def status_pagamento(self, request):
         status_filtro = request.query_params.get('pago') # 'true' ou 'false'
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
         
         queryset = self.get_queryset().select_related('paciente', 'profissional', 'tipo_atendimento')
         
         if status_filtro == 'true':
             # Totalmente pago (valor_pago >= valor_total)
             queryset = queryset.filter(valor_pago__gte=models.F('valor_total'))
-            if start_date and end_date:
-                queryset = queryset.filter(data_pagamento__date__range=[start_date, end_date])
         elif status_filtro == 'false':
             # Pendente (valor_pago < valor_total)
             queryset = queryset.filter(valor_pago__lt=models.F('valor_total'))

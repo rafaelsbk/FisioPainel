@@ -22,11 +22,19 @@ class PackageRepository {
     };
   }
 
-  // 1. LISTAR PACOTES COM PAGINAÃ‡ÃƒO
-  Future<List<PackageModel>> getPackages({int page = 1}) async {
+  // 1. LISTAR PACOTES COM PAGINAÇÃO
+  Future<List<PackageModel>> getPackages({int page = 1, String? query, String? startDate, String? endDate, int? profissionalId, int? tipoAtendimentoId}) async {
     var headers = await _getHeaders();
+    
+    String url = '$apiBase/pacotes/?page=$page';
+    if (query != null && query.isNotEmpty) url += '&q=$query';
+    if (startDate != null && startDate.isNotEmpty) url += '&start_date=$startDate';
+    if (endDate != null && endDate.isNotEmpty) url += '&end_date=$endDate';
+    if (profissionalId != null) url += '&profissional_id=$profissionalId';
+    if (tipoAtendimentoId != null) url += '&tipo_atendimento_id=$tipoAtendimentoId';
+
     var response = await http.get(
-      Uri.parse('$apiBase/pacotes/?page=$page'),
+      Uri.parse(url),
       headers: headers,
     );
 

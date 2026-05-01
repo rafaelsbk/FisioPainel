@@ -63,12 +63,12 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
       _emailCtrl.text = p.email;
       _phoneCtrl.text = PhoneInputFormatter.format(p.phoneNumber);
       _cpfCtrl.text = CpfInputFormatter.format(p.cpf);
-      final nf = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$ ');
+      final nfCurrency = NumberFormat.currency(locale: 'pt_BR', symbol: '');
       _crefitoCtrl.text = p.crefito;
-      _percentualCtrl.text = p.percentualRepasse != null ? nf.format(p.percentualRepasse) : '';
-      _valorRepasseFixoCtrl.text = p.valorRepasseFixo != null ? nf.format(p.valorRepasseFixo) : '';
-      _percentualTaxaReposicaoCtrl.text = p.percentualTaxaReposicao != null ? nf.format(p.percentualTaxaReposicao) : '';
-      _valorTaxaReposicaoFixoCtrl.text = p.valorTaxaReposicaoFixo != null ? nf.format(p.valorTaxaReposicaoFixo) : '';
+      _percentualCtrl.text = p.percentualRepasse != null ? nfCurrency.format(p.percentualRepasse) : '';
+      _valorRepasseFixoCtrl.text = p.valorRepasseFixo != null ? nfCurrency.format(p.valorRepasseFixo) : '';
+      _percentualTaxaReposicaoCtrl.text = p.percentualTaxaReposicao != null ? nfCurrency.format(p.percentualTaxaReposicao) : '';
+      _valorTaxaReposicaoFixoCtrl.text = p.valorTaxaReposicaoFixo != null ? nfCurrency.format(p.valorTaxaReposicaoFixo) : '';
       _selectedRoleId = p.usersRoles?.id;
 
       if (p.valorRepasseFixo != null && p.valorRepasseFixo! > 0) {
@@ -404,6 +404,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                           decoration: const InputDecoration(
                             labelText: '% Repasse',
                             prefixIcon: Icon(Icons.percent),
+                            suffixText: "%",
                           ),
                         )
                       else
@@ -413,9 +414,11 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                             CurrencyInputFormatter(),
-                          ],                          decoration: const InputDecoration(
+                          ],
+                          decoration: const InputDecoration(
                             labelText: 'Valor Repasse Fixo (R\$)',
                             prefixIcon: Icon(Icons.attach_money),
+                            prefixText: "R\$ ",
                           ),
                         ),
 
@@ -459,6 +462,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                           decoration: const InputDecoration(
                             labelText: '% Taxa Reposição',
                             prefixIcon: Icon(Icons.percent),
+                            suffixText: "%",
                           ),
                         )
                       else
@@ -472,6 +476,7 @@ class _ProfessionalFormScreenState extends State<ProfessionalFormScreen> {
                           decoration: const InputDecoration(
                             labelText: 'Valor Taxa Reposição Fixo (R\$)',
                             prefixIcon: Icon(Icons.attach_money),
+                            prefixText: "R\$ ",
                           ),
                         ),
 
