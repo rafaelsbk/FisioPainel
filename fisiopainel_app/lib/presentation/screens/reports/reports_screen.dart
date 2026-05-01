@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../../data/services/storage_service.dart';
 import '../../../data/repositories/report_repository.dart';
 import '../../../data/repositories/professional_repository.dart';
+import '../../../data/services/report_pdf_service.dart';
 import '../../../domain/models/appointment_model.dart';
 import '../../../domain/models/professional_model.dart';
 
@@ -25,6 +26,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   DateTimeRange? _selectedDateRange;
 
   bool _isLoading = false;
+  bool _isPdfLoading = false;
   Map<String, dynamic>? _reportData;
   Map<String, dynamic>? _financialData;
 
@@ -150,6 +152,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
+  Future<void> _downloadPdf() async {
+    if (_reportData == null || _financialData == null || _selectedProfessionalId == null || _selectedDateRange == null) return;
+
+    setState(() => _isPdfLoading = true);
+    try {
+      final prof = _professionals.firstWhere((p) => p.id == _selectedProfessionalId);
+      await ReportPdfService.generateAndPrintReport(
+        professional: prof,
+        period: _selectedDateRange!,
+        reportData: _reportData!,
+        financialData: _financialData!,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao gerar PDF: $e")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPdfLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -235,17 +260,45 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : _generateReport,
-                icon: const Icon(Icons.search),
-                label: const Text("GERAR RELATÓRIO"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue[800],
-                  foregroundColor: Colors.white,
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _generateReport,
+                    icon: const Icon(Icons.search),
+                    label: const Text("GERAR RELATÓRIO"),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
                 ),
-              ),
+                if (_reportData != null && _financialData != null) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 1,
+                    child: ElevatedButton.icon(
+                      onPressed: _isPdfLoading ? null : _downloadPdf,
+                      icon: _isPdfLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.picture_as_pdf),
+                      label: const Text("PDF"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.tertiary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),

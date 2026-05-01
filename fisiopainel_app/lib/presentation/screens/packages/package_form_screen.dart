@@ -64,7 +64,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
       _qtdCtrl.text = pkg.quantity.toString();
       _selectedPaymentMethod = pkg.paymentMethod;
 
-      final nf = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$ ');
+      final nf = NumberFormat.currency(locale: 'pt_BR', symbol: '');
       _totalCtrl.text = nf.format(pkg.totalValue).trim();
       _sessionValueCtrl.text = nf.format(pkg.sessionValue).trim();
 
@@ -117,7 +117,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
 
     if (qtd > 0 && total > 0) {
       final sessionVal = total / qtd;
-      _sessionValueCtrl.text = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$ ').format(sessionVal).trim();    
+      _sessionValueCtrl.text = NumberFormat.currency(locale: 'pt_BR', symbol: '').format(sessionVal).trim();    
     }
   }
 
@@ -349,9 +349,10 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                         return const Iterable<PatientModel>.empty();
                       }
                       return widget.controller.patientsList.where((PatientModel option) {
-                        return option.completeName
-                            .toLowerCase()
-                            .contains(textEditingValue.text.toLowerCase());
+                        return StringUtils.containsAccentInsensitive(
+                          option.completeName,
+                          textEditingValue.text,
+                        );
                       });
                     },
                     onSelected: (PatientModel selection) {
@@ -534,8 +535,8 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Valor Total do Pacote (R\$) *',
                     prefixIcon: Icon(Icons.monetization_on_outlined),
-                  ),
-                  onChanged: (_) {
+                    prefixText: "R\$ ",
+                  ),                  onChanged: (_) {
                     _calculateSessionValue();
                     setState(() {});
                   },
@@ -568,6 +569,7 @@ class _PackageFormScreenState extends State<PackageFormScreen> {
                   decoration: InputDecoration(
                     labelText: 'Valor por Sessão (Calculado)',
                     prefixIcon: const Icon(Icons.calculate_outlined),
+                    prefixText: "R\$ ",
                     filled: true,
                     fillColor: Colors.grey[100],
                   ),
